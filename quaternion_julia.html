@@ -1,0 +1,774 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Icosahedral Julia–Kaleidoscope (Black & Gold)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    html, body { height: 100%; margin: 0; background: #0A0A0A; color: #D4AF37; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+    #ui {
+      position: fixed; top: 12px; left: 12px; width: 360px; max-width: 92vw;
+      background: rgba(10,10,10,0.75); backdrop-filter: blur(4px);
+      border: 1px solid #C2A14A; border-radius: 8px; padding: 12px; z-index: 10;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.4), 0 12px 24px rgba(0,0,0,0.35);
+    }
+    #ui h1 { margin: 0 0 8px 0; font-size: 15px; letter-spacing: 0.02em; }
+    #seq { width: 100%; min-height: 84px; resize: vertical; box-sizing: border-box;
+           background: #0F0F0F; color: #E6C200; border: 1px solid #3A2C00; border-radius: 6px; padding: 8px; }
+    .row { display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+    .row label { font-size: 12px; opacity: 0.85; }
+    input[type="range"] { width: 140px; }
+    button {
+      background: linear-gradient(180deg, #D4AF37, #B8911E);
+      border: 0; color: #0A0A0A; font-weight: 600; padding: 8px 12px; border-radius: 6px; cursor: pointer;
+    }
+    button:focus, button:hover { filter: brightness(1.05); }
+    .chip { font-size: 11px; padding: 2px 6px; border-radius: 999px; border: 1px solid #3A2C00; background: #111; color: #C2A14A; }
+    #canvas { position: fixed; inset: 0; display: block; }
+    #stats { margin-top: 6px; font-size: 11px; color: #C2A14A; opacity: 0.95; }
+    a { color: #E6C200; text-decoration: none; border-bottom: 1px dotted #6B560F; }
+    a:hover { border-bottom-style: solid; }
+    .spacer { flex: 1 1 auto; }
+  </style>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.161.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.161.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="ui">
+    <h1>Icosahedral Julia–Kaleidoscope <span class="chip">3D • Three.js</span> <span class="chip">Black+Gold</span></h1>
+    <textarea id="seq" spellcheck="false" placeholder="Paste DNA (ACGT…) or protein (ARND…WYV) sequence here to parameterize."></textarea>
+    <div class="row">
+      <button id="apply">Render from sequence</button>
+      <button id="center">Center view</button>
+      <span class="spacer"></span>
+      <label>Slice (w): <input id="slice" type="range" min="-0.95" max="0.95" step="0.01" value="0.1"></label>
+    </div>
+    <div class="row">
+      <label>Symmetry: <input id="fold" type="range" min="0" max="1" step="0.01" value="0.85"></label>
+      <label>Detail: <input id="iters" type="range" min="8" max="32" step="1" value="18"></label>
+      <label>Roughness: <input id="rough" type="range" min="0.05" max="0.8" step="0.01" value="0.28"></label>
+      <label>Bloom: <input id="bloom" type="range" min="0" max="2" step="0.01" value="0.55"></label>
+      <label>Exposure: <input id="exposure" type="range" min="0.6" max="1.8" step="0.01" value="1.15"></label>
+    </div>
+    <div class="row">
+      <label><input id="animSlice" type="checkbox" checked> Slice Sweep</label>
+      <label>Amp: <input id="animSliceAmp" type="range" min="0" max="0.4" step="0.005" value="0.18"></label>
+      <label>Speed: <input id="animSliceSpeed" type="range" min="0" max="0.15" step="0.001" value="0.035"></label>
+    </div>
+    <div class="row">
+      <label><input id="animRotateZW" type="checkbox" checked> 4D Rotate (z–w)</label>
+      <label>Speed: <input id="animThetaSpeed" type="range" min="0" max="0.10" step="0.001" value="0.022"></label>
+    </div>
+    <div class="row">
+      <label><input id="animC" type="checkbox"> c(t) Loop</label>
+      <label>Scale: <input id="animCScale" type="range" min="0" max="1.0" step="0.01" value="0.9"></label>
+      <label>Speed: <input id="animCSpeed" type="range" min="0" max="0.10" step="0.001" value="0.020"></label>
+    </div>
+    <div id="stats">Ready. Paste a sequence and click <b>Render</b>. Drag to orbit; scroll to zoom. Honors <code>prefers-reduced-motion</code>.</div>
+  </div>
+  <canvas id="canvas"></canvas>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+    import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+    import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
+
+    // ---------- Renderer & scene ----------
+    const canvas = document.getElementById('canvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    const drawingBufferSize = new THREE.Vector2();
+    renderer.getDrawingBufferSize(drawingBufferSize);
+
+    const scene = new THREE.Scene();
+    const screenCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+    // Orbit camera (for orientation fed to the shader)
+    const viewCam = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.01, 100);
+    viewCam.position.set(0, 0, 4.0);
+    const controls = new OrbitControls(viewCam, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+
+    // ---------- Fullscreen shader quad ----------
+    const uniforms = {
+      uTime: { value: 0 },
+      uResolution: { value: drawingBufferSize.clone() },
+      uCamPos: { value: new THREE.Vector3() },
+      uCamDir: { value: new THREE.Vector3() },
+      uCamRight: { value: new THREE.Vector3() },
+      uCamUp: { value: new THREE.Vector3() },
+      uTanFovX: { value: Math.tan(THREE.MathUtils.degToRad(viewCam.fov * 0.5)) * viewCam.aspect },
+      uTanFovY: { value: Math.tan(THREE.MathUtils.degToRad(viewCam.fov * 0.5)) },
+
+      // Fractal params
+      uC: { value: new THREE.Vector4(0.2, 0.0, 0.0, 0.0) },
+      uSlice: { value: parseFloat(document.getElementById('slice').value) },
+      uIters: { value: parseInt(document.getElementById('iters').value, 10) },
+      uBailout: { value: 8.0 },
+      uFoldStrength: { value: parseFloat(document.getElementById('fold').value) },
+      uFoldIters: { value: 18 },
+      uOffset: { value: new THREE.Vector3(0,0,0) },   // model-space translation for centering
+
+      // Shading
+      uGoldColor: { value: new THREE.Vector3(0.95, 0.78, 0.22) },
+      uRoughness: { value: parseFloat(document.getElementById('rough').value) },
+      uExposure: { value: parseFloat(document.getElementById('exposure').value) },
+
+      // Animation uniforms
+      uThetaZW:   { value: 0.0 },
+      uSliceBase: { value: parseFloat(document.getElementById('slice').value) },
+      uSliceAmp:  { value: parseFloat(document.getElementById('animSliceAmp').value) },
+      uSlicePhase:{ value: 0.0 },
+      uAnimFlags: { value: 0 },
+      uCAnimScale:{ value: parseFloat(document.getElementById('animCScale').value) },
+
+      uReduced: { value: window.matchMedia('(prefers-reduced-motion)').matches ? 1 : 0 },
+    };
+
+    const material = new THREE.ShaderMaterial({
+      uniforms,
+      vertexShader: /* glsl */`
+        varying vec2 vUv;
+        void main() { vUv = uv; gl_Position = vec4(position, 1.0); }
+      `,
+      fragmentShader: /* glsl */`
+        precision highp float; precision highp int;
+        varying vec2 vUv;
+
+        uniform vec2  uResolution;
+        uniform float uTime;
+        uniform vec3  uCamPos, uCamDir, uCamRight, uCamUp;
+        uniform float uTanFovX, uTanFovY;
+        uniform vec4  uC;
+        uniform float uSlice;
+        uniform float uSliceBase;
+        uniform float uSliceAmp;
+        uniform float uSlicePhase;
+        uniform float uThetaZW;
+        uniform int   uAnimFlags;
+        uniform int   uIters;
+        uniform float uBailout;
+        uniform float uFoldStrength;
+        uniform int   uFoldIters;
+        uniform vec3  uGoldColor;
+        uniform float uRoughness;
+        uniform float uExposure;
+        uniform int   uReduced;
+        uniform vec3  uOffset;
+
+        #define PI 3.14159265358979323846
+        #define MAX_STEPS 160
+        #define MAX_DIST  20.0
+        #define SURF_EPS  0.00075
+
+        // H3 kaleidoscopic planes
+        const vec3 n0 = vec3(1.0, 0.0, 0.0);
+        const vec3 n1 = vec3(-0.8090169943749473, -0.5, 0.30901699437494745);
+        const vec3 n2 = vec3(0.0, 1.0, 0.0);
+
+        vec3 foldH3(vec3 p) {
+          for (int i = 0; i < 20; ++i) {
+            float d0 = dot(p, n0); if (d0 < 0.0) p -= 2.0 * d0 * n0;
+            float d1 = dot(p, n1); if (d1 < 0.0) p -= 2.0 * d1 * n1;
+            float d2 = dot(p, n2); if (d2 < 0.0) p -= 2.0 * d2 * n2;
+            if (d0 >= 0.0 && d1 >= 0.0 && d2 >= 0.0) break;
+          }
+          return p;
+        }
+
+        vec4 qSquare(vec4 z) {
+          vec3 v = z.xyz; float w = z.w;
+          vec3 v2 = 2.0 * w * v;
+          float w2 = w*w - dot(v, v);
+          return vec4(v2, w2);
+        }
+
+        float juliaDE(vec3 p) {
+          vec3 pf = mix(p, foldH3(p), clamp(uFoldStrength, 0.0, 1.0));
+          pf -= uOffset; // translate post-fold to preserve symmetry wedge
+
+          float wSlice = ((uAnimFlags & 1) != 0) ? (uSliceBase + uSliceAmp * sin(uSlicePhase)) : uSlice;
+          vec4 z = vec4(pf, wSlice);
+
+          float mdr = 1.0;
+          float r   = length(z);
+
+          bool rotateZW = (uAnimFlags & 2) != 0;
+          float cosTheta = cos(uThetaZW);
+          float sinTheta = sin(uThetaZW);
+
+          for (int i = 0; i < 64; ++i) {
+            if (i >= uIters) break;
+
+            if (rotateZW) {
+              float zZ = z.z;
+              float zW = z.w;
+              z.z =  cosTheta * zZ - sinTheta * zW;
+              z.w =  sinTheta * zZ + cosTheta * zW;
+            }
+
+            mdr = 2.0 * max(r, 1e-6) * mdr;
+            z = qSquare(z) + uC;
+            r = length(z);
+            if (r > uBailout) break;
+          }
+
+          float de = 0.5 * log(r) * r / max(mdr, 1e-6);
+          return abs(de);
+        }
+
+        vec3 calcNormal(in vec3 p) {
+          const float e = 0.0018;
+          const vec3 k1 = vec3(1.0,-1.0,-1.0);
+          const vec3 k2 = vec3(-1.0,-1.0, 1.0);
+          const vec3 k3 = vec3(-1.0, 1.0,-1.0);
+          const vec3 k4 = vec3(1.0, 1.0, 1.0);
+          return normalize(
+            k1 * juliaDE(p + e * k1) +
+            k2 * juliaDE(p + e * k2) +
+            k3 * juliaDE(p + e * k3) +
+            k4 * juliaDE(p + e * k4)
+          );
+        }
+
+        float saturate(float x) { return clamp(x, 0.0, 1.0); }
+        vec3  fresnelSchlick(float cosTheta, vec3 F0) {
+          return F0 + (vec3(1.0) - F0) * pow(1.0 - cosTheta, 5.0);
+        }
+        float D_GGX(float NoH, float a) {
+          float a2 = a*a; float d = (NoH*NoH)*(a2 - 1.0) + 1.0;
+          return a2 / (PI * d * d + 1e-6);
+        }
+        float V_SmithGGX(float NoV, float NoL, float a) {
+          float k = (a + 1.0); k = (k*k) / 8.0;
+          float gv = NoV / (NoV * (1.0 - k) + k);
+          float gl = NoL / (NoL * (1.0 - k) + k);
+          return gv * gl;
+        }
+
+        bool raymarch(in vec3 ro, in vec3 rd, out vec3 p, out int steps) {
+          float t = 0.0; steps = 0;
+          for (int i = 0; i < MAX_STEPS; ++i) {
+            vec3 pos = ro + rd * t;
+            float d = juliaDE(pos);
+            if (d < SURF_EPS) { p = pos; steps = i; return true; }
+            t += d;
+            if (t > MAX_DIST) break;
+          }
+          p = ro + rd * t; steps = MAX_STEPS; return false;
+        }
+
+        void main() {
+          // Use quad UVs so ray gen is independent of drawing-buffer resolution.
+          vec2 uv = vUv * 2.0 - 1.0;
+
+          vec3 ro = uCamPos;
+          vec3 rd = normalize(uCamDir + uv.x * uCamRight * uTanFovX + uv.y * uCamUp * uTanFovY);
+
+          vec3 p; int steps; bool hit = raymarch(ro, rd, p, steps);
+          vec3 col = vec3(0.0);
+
+          if (hit) {
+            vec3 n = calcNormal(p);
+            vec3 v = normalize(-rd);
+            vec3 l1 = normalize(vec3(0.6, 0.5, 0.64));
+            vec3 l2 = normalize(vec3(-0.4, -0.2, -0.3));
+            float rough = clamp(uRoughness, 0.02, 0.95);
+            float a = rough*rough;
+
+            float NoV = max(dot(n, v), 0.0);
+            float NoL1 = max(dot(n, l1), 0.0);
+            float NoL2 = max(dot(n, l2), 0.0);
+
+            vec3 h1 = normalize(v + l1);
+            vec3 h2 = normalize(v + l2);
+            float NoH1 = max(dot(n, h1), 0.0);
+            float NoH2 = max(dot(n, h2), 0.0);
+            float VoH1 = max(dot(v, h1), 0.0);
+            float VoH2 = max(dot(v, h2), 0.0);
+
+            vec3 F0 = uGoldColor;
+            vec3  F1 = fresnelSchlick(VoH1, F0);
+            vec3  F2 = fresnelSchlick(VoH2, F0);
+            float D1 = D_GGX(NoH1, a);
+            float D2 = D_GGX(NoH2, a);
+            float V1 = V_SmithGGX(NoV, NoL1, a);
+            float V2 = V_SmithGGX(NoV, NoL2, a);
+
+            vec3 spec1 = (D1 * V1) * F1 * NoL1;
+            vec3 spec2 = (D2 * V2) * F2 * NoL2;
+            float ambient = 0.06 + 0.12 * smoothstep(0.0, 1.0, float(steps) / float(MAX_STEPS));
+
+            col = ambient * (uGoldColor * 0.15) + spec1 + spec2;
+            float vign = 0.9 - 0.25 * dot(uv, uv);
+            col *= max(vign, 0.65);
+          }
+
+          col *= uExposure;
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `,
+      depthWrite: false,
+      depthTest: false
+    });
+
+    const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
+    quad.frustumCulled = false;
+    scene.add(quad);
+
+    // ---------- Post ----------
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, screenCam));
+    const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight),
+                                          parseFloat(document.getElementById('bloom').value), 0.7, 0.8);
+    composer.addPass(bloomPass);
+    const fxaaPass = new ShaderPass(FXAAShader);
+    {
+      const db = new THREE.Vector2();
+      renderer.getDrawingBufferSize(db);
+      fxaaPass.material.uniforms['resolution'].value.set(1 / db.x, 1 / db.y);
+    }
+    composer.addPass(fxaaPass);
+
+    // ---------- Sequence mapping ----------
+    const KD = {I:4.5,V:4.2,L:3.8,F:2.8,C:2.5,M:1.9,A:1.8,G:-0.4,T:-0.7,S:-0.8,W:-0.9,Y:-1.3,P:-1.6,H:-3.2,E:-3.5,Q:-3.5,D:-3.5,N:-3.5,K:-3.9,R:-4.5};
+    function clean(s){ return (s||"").toUpperCase().replace(/[^A-Z]/g,""); }
+    function isDNA(s){ return /^[ACGTN]+$/.test(s); }
+    function clamp(v,a,b){ return Math.min(Math.max(v,a),b); }
+    function remap01(x,a,b){ return clamp((x-a)/(b-a),0,1); }
+    function entropyKmer(s, alphabet, k){
+      const n=s.length, map=new Map(); if(n<k) return 0;
+      for(let i=0;i<=n-k;i++){ const sub=s.slice(i,i+k); if(![...sub].every(ch=>alphabet.has(ch))) continue; map.set(sub,(map.get(sub)||0)+1); }
+      let H=0,total=0; for(const c of map.values()) total+=c;
+      for(const c of map.values()){ const p=c/total; H -= p*Math.log2(p); } return H;
+    }
+    function gcContent(s){ const g=(s.match(/G/g)||[]).length, c=(s.match(/C/g)||[]).length, a=(s.match(/A/g)||[]).length, t=(s.match(/T/g)||[]).length; const d=g+c+a+t; return d? (g+c)/d : 0; }
+    function cpgOE(s){ const L=s.length; if(L<2) return 0; const c=(s.match(/C/g)||[]).length, g=(s.match(/G/g)||[]).length, cg=(s.match(/CG/g)||[]).length; return (cg*L)/Math.max(1,c*g); }
+    function proteinStats(s){
+      const L=s.length; if(!L) return { hyd:0, arom:0, charge:0 };
+      let hyd=0, arom=0, pos=0, neg=0, his=0;
+      for(const ch of s){ hyd += (KD[ch]??0); if(ch==='F'||ch==='Y'||ch==='W') arom++; if(ch==='K'||ch==='R') pos++; if(ch==='D'||ch==='E') neg++; if(ch==='H') his++; }
+      return { hyd: hyd/L, arom: arom/L, charge: (pos + 0.1*his - neg)/L };
+    }
+
+    function seqToParams(raw){
+      const s=clean(raw); if(!s.length) return null; const L=s.length;
+      const lenNorm = remap01(Math.log10(L), Math.log10(30), Math.log10(30000));
+      let cx=0,cy=0,cz=0,cw=0, iters=18, fold=0.85, rough=0.28;
+
+      if (isDNA(s)){
+        const gc=gcContent(s); const H3=entropyKmer(s,new Set(['A','C','G','T','N']),3); const H3n=clamp(H3/6,0,1); const oe=clamp(cpgOE(s),0,2.0);
+        cx=-0.8+1.6*gc; cy=-0.8+1.6*H3n; cz=-0.8+1.6*(oe/2.0); cw=-0.8+1.6*lenNorm;
+        iters=10+Math.floor(18*H3n); fold=0.65+0.35*clamp(oe/1.5,0,1); rough=0.22+0.36*(1.0-H3n);
+      } else {
+        const {hyd, arom, charge}=proteinStats(s);
+        const hydN=remap01(hyd,-4.5,4.5); const chN=remap01((charge+1)*0.5,0,1);
+        cx=-0.8+1.6*hydN; cy=-0.8+1.6*clamp(arom/0.2,0,1); cz=-0.8+1.6*chN; cw=-0.8+1.6*lenNorm;
+        const H2=entropyKmer(s,new Set('ACDEFGHIKLMNPQRSTVWY'.split('')),2); const H2n=clamp(H2/8.64,0,1);
+        iters=10+Math.floor(18*H2n); fold=0.6+0.4*clamp(arom/0.15,0,1); rough=0.18+0.42*(1.0-hydN);
+      }
+
+      const r=Math.hypot(cx,cy,cz,cw); if(r>0.95){ const s=0.95/r; cx*=s; cy*=s; cz*=s; cw*=s; }
+      return { c:new THREE.Vector4(cx,cy,cz,cw), iters, fold, rough };
+    }
+
+    // ---------- CPU-side helpers for centering ----------
+    const PLANE_N0 = new THREE.Vector3(1,0,0);
+    const PLANE_N1 = new THREE.Vector3(-0.8090169943749473,-0.5,0.30901699437494745);
+    const PLANE_N2 = new THREE.Vector3(0,1,0);
+    const TMP_LOCAL = new THREE.Vector3();
+    const TMP_FOLD = new THREE.Vector3();
+    const TMP_POS = new THREE.Vector3();
+    const TMP_CAM = new THREE.Vector3();
+    const TMP_AVG = new THREE.Vector3();
+    const TMP_TARGET = new THREE.Vector3();
+    const TMP_DIR = new THREE.Vector3();
+    const TMP_UP = new THREE.Vector3();
+    const TMP_RIGHT = new THREE.Vector3();
+    const TMP_RO = new THREE.Vector3();
+    const TMP_RAY = new THREE.Vector3();
+    const SAMPLE_OFFSETS = [
+      [0, 0],
+      [0.45, 0], [-0.45, 0], [0, 0.45], [0, -0.45],
+      [0.32, 0.32], [-0.32, 0.32], [0.32, -0.32], [-0.32, -0.32]
+    ];
+    const MAX_STEPS = 160;
+    const MAX_DIST = 20;
+    const SURF_EPS = 0.00075;
+
+    function foldH3_JS(vec){
+      const iterations = uniforms.uFoldIters.value|0;
+      for(let i=0;i<iterations;i++){
+        const d0 = vec.dot(PLANE_N0); if (d0 < 0) vec.addScaledVector(PLANE_N0, -2*d0);
+        const d1 = vec.dot(PLANE_N1); if (d1 < 0) vec.addScaledVector(PLANE_N1, -2*d1);
+        const d2 = vec.dot(PLANE_N2); if (d2 < 0) vec.addScaledVector(PLANE_N2, -2*d2);
+        if (d0 >= 0 && d1 >= 0 && d2 >= 0) break;
+      }
+      return vec;
+    }
+
+    function juliaDE_JS(p){
+      TMP_LOCAL.copy(p);
+      TMP_FOLD.copy(TMP_LOCAL);
+      foldH3_JS(TMP_FOLD);
+      const foldStrength = THREE.MathUtils.clamp(uniforms.uFoldStrength.value, 0, 1);
+      if (foldStrength > 0) TMP_LOCAL.lerp(TMP_FOLD, foldStrength);
+      TMP_LOCAL.sub(uniforms.uOffset.value);
+
+      let zx=TMP_LOCAL.x, zy=TMP_LOCAL.y, zz=TMP_LOCAL.z;
+      const animFlags = uniforms.uAnimFlags.value|0;
+      const sliceBase = uniforms.uSliceBase.value;
+      const sliceAmp = uniforms.uSliceAmp.value;
+      const slicePhase = uniforms.uSlicePhase.value;
+      let zw = ((animFlags & 1) !== 0) ? (sliceBase + sliceAmp * Math.sin(slicePhase)) : uniforms.uSlice.value;
+      let mdr=1;
+      let r=Math.hypot(zx,zy,zz,zw);
+      const iters=Math.min(64, uniforms.uIters.value|0);
+      const bailout=uniforms.uBailout.value;
+      const rotateZW = (animFlags & 2) !== 0;
+      const cosTheta = Math.cos(uniforms.uThetaZW.value);
+      const sinTheta = Math.sin(uniforms.uThetaZW.value);
+      for(let i=0;i<iters;i++){
+        if (rotateZW){
+          const zZ = zz, zW = zw;
+          zz = cosTheta * zZ - sinTheta * zW;
+          zw = sinTheta * zZ + cosTheta * zW;
+        }
+        mdr = 2*Math.max(r,1e-6)*mdr;
+        const x=zx, y=zy, z=zz, w=zw;
+        zx = 2*w*x + uniforms.uC.value.x;
+        zy = 2*w*y + uniforms.uC.value.y;
+        zz = 2*w*z + uniforms.uC.value.z;
+        zw = w*w - (x*x + y*y + z*z) + uniforms.uC.value.w;
+        r = Math.hypot(zx,zy,zz,zw);
+        if (r > bailout) break;
+      }
+      return 0.5*Math.log(r)*r/Math.max(mdr,1e-6);
+    }
+
+    function marchRay(ro, rd){
+      let t=0;
+      for(let i=0;i<MAX_STEPS;i++){
+        TMP_POS.copy(ro).addScaledVector(rd, t);
+        const d = Math.abs(juliaDE_JS(TMP_POS));
+        if (d < SURF_EPS) return TMP_POS.clone();
+        t += Math.min(d, 0.5);
+        if (t > MAX_DIST) break;
+      }
+      return null;
+    }
+
+    function computeCameraCentroid(){
+      viewCam.updateMatrixWorld(true);
+      viewCam.getWorldDirection(TMP_DIR);
+      TMP_UP.set(0,1,0).applyQuaternion(viewCam.quaternion).normalize();
+      TMP_RIGHT.crossVectors(TMP_DIR, TMP_UP).normalize();
+      TMP_RO.copy(viewCam.position);
+
+      const tanY = Math.tan(THREE.MathUtils.degToRad(viewCam.fov * 0.5));
+      const tanX = tanY * viewCam.aspect;
+
+      TMP_AVG.set(0,0,0);
+      let count = 0;
+      for(const [ox, oy] of SAMPLE_OFFSETS){
+        TMP_RAY.copy(TMP_DIR)
+          .addScaledVector(TMP_RIGHT, ox * tanX)
+          .addScaledVector(TMP_UP, oy * tanY)
+          .normalize();
+        const hit = marchRay(TMP_RO, TMP_RAY);
+        if (!hit) continue;
+        TMP_AVG.add(hit);
+        count++;
+      }
+
+      return count ? TMP_AVG.multiplyScalar(1 / count) : null;
+    }
+
+    function autoCenterFractal({ iterations=2, gain=0.8 }={}){
+      let success = false;
+      const blend = THREE.MathUtils.clamp(gain, 0, 1);
+
+      for(let pass=0; pass<Math.max(1, iterations); pass++){
+        viewCam.updateMatrixWorld(true);
+        viewCam.getWorldDirection(TMP_DIR);
+        TMP_UP.set(0,1,0).applyQuaternion(viewCam.quaternion).normalize();
+        TMP_RIGHT.crossVectors(TMP_DIR, TMP_UP).normalize();
+        TMP_RO.copy(viewCam.position);
+
+        const tanY = Math.tan(THREE.MathUtils.degToRad(viewCam.fov * 0.5));
+        const tanX = tanY * viewCam.aspect;
+
+        TMP_AVG.set(0,0,0);
+        let count = 0;
+        for(const [ox, oy] of SAMPLE_OFFSETS){
+          TMP_RAY.copy(TMP_DIR)
+            .addScaledVector(TMP_RIGHT, ox * tanX)
+            .addScaledVector(TMP_UP, oy * tanY)
+            .normalize();
+          const hit = marchRay(TMP_RO, TMP_RAY);
+          if (!hit) continue;
+          TMP_AVG.add(hit);
+          count++;
+        }
+
+        if (!count) break;
+
+        TMP_AVG.multiplyScalar(1 / count);
+
+        const prevTarget = controls.target.clone();
+        const prevCamPos = viewCam.position.clone();
+        const orbitRadius = prevCamPos.distanceTo(prevTarget);
+
+        TMP_TARGET.copy(prevTarget).lerp(TMP_AVG, blend);
+        controls.target.copy(TMP_TARGET);
+
+        const dirFromCentroid = prevCamPos.clone().sub(TMP_TARGET);
+        if (dirFromCentroid.lengthSq() === 0) dirFromCentroid.set(0,0,orbitRadius);
+        dirFromCentroid.normalize();
+
+        viewCam.position.copy(TMP_TARGET).add(dirFromCentroid.multiplyScalar(Math.max(orbitRadius, 1e-3)));
+        viewCam.lookAt(controls.target);
+        controls.update();
+
+        success = true;
+      }
+
+      if (success) controls.update();
+      return success;
+    }
+
+    function recenterFractal(){
+      uniforms.uOffset.value.set(0,0,0);
+      controls.target.set(0,0,0);
+      controls.update();
+      viewCam.position.set(0,0,4);
+      viewCam.lookAt(controls.target);
+
+      const centroid = computeCameraCentroid();
+      if (!centroid) return null;
+      uniforms.uOffset.value.copy(centroid);
+      return centroid.clone();
+    }
+
+    // ---------- Camera uniforms ----------
+    const $ = id => document.getElementById(id);
+    function updateCameraUniforms(){
+      viewCam.updateMatrixWorld(true);
+      const dir = new THREE.Vector3(); viewCam.getWorldDirection(dir);
+      const up = new THREE.Vector3(0,1,0).applyQuaternion(viewCam.quaternion).normalize();
+      const right = new THREE.Vector3().crossVectors(dir, up).normalize();
+      uniforms.uCamPos.value.copy(viewCam.position);
+      uniforms.uCamDir.value.copy(dir);
+      uniforms.uCamUp.value.copy(up);
+      uniforms.uCamRight.value.copy(right);
+      uniforms.uTanFovY.value = Math.tan(THREE.MathUtils.degToRad(viewCam.fov * 0.5));
+      uniforms.uTanFovX.value = uniforms.uTanFovY.value * viewCam.aspect;
+    }
+
+    // ---------- Animation UI ----------
+    const sliceSlider = $('slice');
+    const animSliceToggle = $('animSlice');
+    const animSliceAmp = $('animSliceAmp');
+    const animSliceSpeed = $('animSliceSpeed');
+    const animRotateToggle = $('animRotateZW');
+    const animThetaSpeed = $('animThetaSpeed');
+    const animCToggle = $('animC');
+    const animCScale = $('animCScale');
+    const animCSpeed = $('animCSpeed');
+
+    let baseC = uniforms.uC.value.clone();
+
+    const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion)');
+
+    function updateAnimFlags(){
+      if (uniforms.uReduced.value === 1) {
+        uniforms.uAnimFlags.value = 0;
+        return;
+      }
+      let mask = 0;
+      if (animSliceToggle.checked) mask |= 1;
+      if (animRotateToggle.checked) mask |= 2;
+      if (animCToggle.checked) mask |= 4;
+      uniforms.uAnimFlags.value = mask;
+    }
+
+    const updateReduced = () => {
+      uniforms.uReduced.value = reducedMotionQuery.matches ? 1 : 0;
+      updateAnimFlags();
+    };
+    updateReduced();
+    if ('addEventListener' in reducedMotionQuery) {
+      reducedMotionQuery.addEventListener('change', updateReduced);
+    } else if ('addListener' in reducedMotionQuery) {
+      reducedMotionQuery.addListener(updateReduced);
+    }
+
+    function syncAnimUniforms(){
+      const sliceVal = parseFloat(sliceSlider.value);
+      uniforms.uSliceBase.value = sliceVal;
+      uniforms.uSlice.value = sliceVal;
+      uniforms.uSliceAmp.value = parseFloat(animSliceAmp.value);
+      uniforms.uCAnimScale.value = Math.min(parseFloat(animCScale.value), 0.95);
+    }
+
+    function onAnimInput(){
+      syncAnimUniforms();
+      updateAnimFlags();
+    }
+
+    [animSliceToggle, animSliceAmp, animSliceSpeed,
+     animRotateToggle, animThetaSpeed,
+     animCToggle, animCScale, animCSpeed,
+     sliceSlider
+    ].forEach(el => {
+      if (!el) return;
+      el.addEventListener('input', onAnimInput);
+      el.addEventListener('change', onAnimInput);
+    });
+
+    onAnimInput();
+
+    // ---------- UI ----------
+    $('apply').addEventListener('click', () => {
+      const s = $('seq').value;
+      const p = seqToParams(s);
+      const stats = document.getElementById('stats');
+      if (!p) { stats.textContent = 'No sequence detected.'; return; }
+      uniforms.uC.value.copy(p.c);
+      baseC.copy(p.c);
+      uniforms.uIters.value = p.iters|0; $('iters').value = String(p.iters|0);
+      uniforms.uFoldStrength.value = p.fold; $('fold').value = p.fold.toFixed(2);
+      uniforms.uRoughness.value = p.rough; $('rough').value = p.rough.toFixed(2);
+
+      uniforms.uOffset.value.set(0,0,0);
+      const centroid = recenterFractal();
+      if (!centroid) {
+        stats.textContent = 'Centering failed: no surface intersection.';
+      } else {
+        stats.innerHTML = `c=[${p.c.x.toFixed(3)}, ${p.c.y.toFixed(3)}, ${p.c.z.toFixed(3)}, ${p.c.w.toFixed(3)}], iters=${p.iters}, symmetry=${p.fold.toFixed(2)}, roughness=${p.rough.toFixed(2)}, offset≈[${uniforms.uOffset.value.x.toFixed(3)}, ${uniforms.uOffset.value.y.toFixed(3)}, ${uniforms.uOffset.value.z.toFixed(3)}].`;
+      }
+      onAnimInput();
+    });
+
+    sliceSlider.addEventListener('input', e => {
+      const val = parseFloat(e.target.value);
+      uniforms.uSlice.value = val;
+      uniforms.uSliceBase.value = val;
+    });
+    $('fold').addEventListener('input', e => { uniforms.uFoldStrength.value = parseFloat(e.target.value); });
+    $('iters').addEventListener('input', e => { uniforms.uIters.value = parseInt(e.target.value, 10); });
+    $('rough').addEventListener('input', e => { uniforms.uRoughness.value = parseFloat(e.target.value); });
+    $('bloom').addEventListener('input', e => { bloomPass.strength = parseFloat(e.target.value); });
+    $('exposure').addEventListener('input', e => { uniforms.uExposure.value = parseFloat(e.target.value); });
+
+    // One-click CPU-side auto-center using multi-sample ray estimates
+    $('center').addEventListener('click', () => {
+      const stats = document.getElementById('stats');
+      const centroid = recenterFractal();
+      if (centroid) {
+        stats.textContent = `Offset recentered to [${uniforms.uOffset.value.x.toFixed(3)}, ${uniforms.uOffset.value.y.toFixed(3)}, ${uniforms.uOffset.value.z.toFixed(3)}].`;
+      } else {
+        stats.textContent = 'Centering failed: no surface intersection.';
+      }
+    });
+
+    // ---------- Animate ----------
+    const clock = new THREE.Clock();
+    const TAU = Math.PI * 2;
+    const C_LOOP_FREQS = [0.77, 1.13, 0.91, 1.27];
+    const C_LOOP_PHASES = [0.0, 1.1, 2.2, 0.7];
+    const C_LOOP_RADII  = [0.65, 0.35, 0.28, 0.42];
+    function onResize(){
+      const w = window.innerWidth, h = window.innerHeight;
+      renderer.setSize(w, h);
+      const db = new THREE.Vector2();
+      renderer.getDrawingBufferSize(db);
+      uniforms.uResolution.value.copy(db);
+      viewCam.aspect = w / h; viewCam.updateProjectionMatrix();
+      bloomPass.setSize(w, h);
+      fxaaPass.material.uniforms['resolution'].value.set(1 / db.x, 1 / db.y);
+      composer.setSize(w, h);
+    }
+    window.addEventListener('resize', onResize);
+
+    function tick(){
+      const t = clock.getElapsedTime();
+      uniforms.uTime.value = t;
+
+      updateAnimFlags();
+      const reduced = uniforms.uReduced.value === 1;
+      let flags = reduced ? 0 : uniforms.uAnimFlags.value;
+      if (reduced) uniforms.uAnimFlags.value = 0;
+
+      // Slice animation
+      if (!reduced && (flags & 1) !== 0 && uniforms.uSliceAmp.value > 0.0) {
+        const speed = parseFloat(animSliceSpeed.value);
+        uniforms.uSlicePhase.value = speed * t * TAU;
+      } else {
+        uniforms.uSlicePhase.value = 0.0;
+      }
+
+      // 4D rotation animation
+      if (!reduced && (flags & 2) !== 0) {
+        const speed = parseFloat(animThetaSpeed.value);
+        uniforms.uThetaZW.value = speed * t * TAU;
+      } else {
+        uniforms.uThetaZW.value = 0.0;
+      }
+
+      // Quaternion loop animation
+      if (!reduced && (flags & 4) !== 0) {
+        const speed = parseFloat(animCSpeed.value);
+        const limit = Math.min(parseFloat(animCScale.value), 0.95);
+        if (limit <= 0.0) {
+          uniforms.uC.value.copy(baseC);
+        } else {
+          const phases = C_LOOP_PHASES;
+          const freqs = C_LOOP_FREQS;
+          const radii = C_LOOP_RADII;
+          const scale = speed * TAU;
+          const arg0 = freqs[0] * scale * t + phases[0];
+          const arg1 = freqs[1] * scale * t + phases[1];
+          const arg2 = freqs[2] * scale * t + phases[2];
+          const arg3 = freqs[3] * scale * t + phases[3];
+          let cx = baseC.x + radii[0] * Math.sin(arg0);
+          let cy = baseC.y + radii[1] * Math.sin(arg1);
+          let cz = baseC.z + radii[2] * Math.sin(arg2);
+          let cw = baseC.w + radii[3] * Math.sin(arg3);
+          const norm = Math.hypot(cx, cy, cz, cw);
+          if (norm > limit && norm > 1e-6) {
+            const s = limit / norm;
+            cx *= s; cy *= s; cz *= s; cw *= s;
+          }
+          uniforms.uC.value.set(cx, cy, cz, cw);
+        }
+      } else {
+        uniforms.uC.value.copy(baseC);
+      }
+
+      controls.update();
+      updateCameraUniforms();
+      composer.render();
+      requestAnimationFrame(tick);
+    }
+    updateCameraUniforms();
+    tick();
+  </script>
+</body>
+</html>
