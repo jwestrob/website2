@@ -2,9 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Jacob West-Roberts — Computational Biology</title>
+  <title>Jacob West‑Roberts — Computational Biology</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0A0A0A" />
+  <link rel="icon" href="assets/poster/hero-poster.jpg">
   <link rel="preload" href="https://unpkg.com/three@0.161.0/build/three.module.js" as="script" crossorigin="anonymous">
   <link rel="preload" href="https://unpkg.com/three@0.161.0/examples/jsm/postprocessing/EffectComposer.js" as="script" crossorigin="anonymous">
   <link rel="preload" href="https://unpkg.com/three@0.161.0/examples/jsm/postprocessing/UnrealBloomPass.js" as="script" crossorigin="anonymous">
@@ -19,464 +20,173 @@
       }
     }
   </script>
-  <meta property="og:title" content="Jacob West-Roberts — Computational Biology">
-  <meta property="og:description" content="Icosahedral quaternion-Julia fractal rendered in gold on black.">
-  <meta property="og:image" content="assets/poster/hero-poster.jpg">
-  <meta name="description" content="Art-forward, black-and-gold hero powered by a quaternion-Julia fractal with icosahedral symmetry." />
 </head>
 <body>
   <canvas id="bg" aria-hidden="true"></canvas>
+  <div class="overlay-gradient" aria-hidden="true"></div>
 
-  <aside class="control-panel" id="control-panel" aria-label="Fractal controls">
-    <button type="button" class="control-toggle" id="toggleControls" aria-expanded="true">Hide controls</button>
-    <div class="panel-body" id="controlBody">
-      <section class="panel-section">
-        <h2>Fractal controls</h2>
-        <label for="seqInput" class="sr-only">DNA or protein sequence</label>
-        <textarea id="seqInput" spellcheck="false" placeholder="Paste DNA (ACGT…) or protein (ARND…WYV) sequence" rows="5"></textarea>
-        <div class="panel-actions">
-          <button type="button" id="applySequence">Render sequence</button>
-          <button type="button" id="resetDefaults">Reset</button>
-          <button type="button" id="recenterView">Recenter</button>
-        </div>
-        <p class="control-status" id="controlStatus" aria-live="polite"></p>
-      </section>
-
-      <section class="panel-section">
-        <h3>Parameters</h3>
-        <div class="control-field">
-          <label for="sliceControl">Slice <span id="sliceValue">0.06</span></label>
-          <input type="range" id="sliceControl" min="-0.9" max="0.9" step="0.01" value="0.06">
-        </div>
-        <div class="control-field">
-          <label for="foldControl">Symmetry fold <span id="foldValue">0.82</span></label>
-          <input type="range" id="foldControl" min="0" max="1" step="0.01" value="0.82">
-        </div>
-        <div class="control-field">
-          <label for="iterationsControl">Iterations <span id="iterationsValue">24</span></label>
-          <input type="range" id="iterationsControl" min="8" max="48" step="1" value="24">
-        </div>
-        <div class="control-field">
-          <label for="roughnessControl">Roughness <span id="roughnessValue">0.32</span></label>
-          <input type="range" id="roughnessControl" min="0.05" max="0.9" step="0.01" value="0.32">
-        </div>
-        <div class="control-field">
-          <label for="bloomControl">Bloom <span id="bloomValue">0.65</span></label>
-          <input type="range" id="bloomControl" min="0" max="2" step="0.01" value="0.65">
-        </div>
-        <div class="control-field">
-          <label for="exposureControl">Exposure <span id="exposureValue">1.25</span></label>
-          <input type="range" id="exposureControl" min="0.6" max="1.8" step="0.01" value="1.25">
-        </div>
-        <div class="control-field">
-          <label for="cameraDistanceControl">Camera distance <span id="cameraDistanceValue">4.20</span></label>
-          <input type="range" id="cameraDistanceControl" min="2" max="6" step="0.05" value="4.2">
-        </div>
-        <div class="control-field">
-          <label for="cameraAzimuthControl">Camera azimuth° <span id="cameraAzimuthValue">-28</span></label>
-          <input type="range" id="cameraAzimuthControl" min="-180" max="180" step="1" value="-28">
-        </div>
-        <div class="control-field">
-          <label for="cameraElevationControl">Camera elevation° <span id="cameraElevationValue">18</span></label>
-          <input type="range" id="cameraElevationControl" min="-80" max="80" step="1" value="18">
-        </div>
-      </section>
-
-      <section class="panel-section">
-        <h3>Animation</h3>
-        <div class="control-row">
-          <label class="toggle">
-            <input type="checkbox" id="animateSlice" checked> Slice sweep
-          </label>
-          <div class="control-field inline">
-            <label for="sliceAmpControl">Amp <span id="sliceAmpValue">0.18</span></label>
-            <input type="range" id="sliceAmpControl" min="0" max="0.4" step="0.01" value="0.18">
-          </div>
-          <div class="control-field inline">
-            <label for="sliceSpeedControl">Speed <span id="sliceSpeedValue">0.002</span></label>
-            <input type="range" id="sliceSpeedControl" min="0" max="0.15" step="0.001" value="0.002">
-          </div>
-        </div>
-        <div class="control-row">
-          <label class="toggle">
-            <input type="checkbox" id="animateRotation"> 4D rotation
-          </label>
-          <div class="control-field inline">
-            <label for="rotationSpeedControl">Speed <span id="rotationSpeedValue">0.022</span></label>
-            <input type="range" id="rotationSpeedControl" min="0" max="0.1" step="0.001" value="0.022" disabled>
-          </div>
-        </div>
-        <div class="control-row">
-          <label class="toggle">
-            <input type="checkbox" id="animateCLoop"> Quaternion loop
-          </label>
-          <div class="control-field inline">
-            <label for="cLoopScaleControl">Scale <span id="cLoopScaleValue">0.9</span></label>
-            <input type="range" id="cLoopScaleControl" min="0" max="1" step="0.01" value="0.9" disabled>
-          </div>
-          <div class="control-field inline">
-            <label for="cLoopSpeedControl">Speed <span id="cLoopSpeedValue">0.02</span></label>
-            <input type="range" id="cLoopSpeedControl" min="0" max="0.1" step="0.001" value="0.02" disabled>
-          </div>
-        </div>
-      </section>
+  <header id="site-header" class="site-header" data-collapsed="false" role="banner">
+    <div class="header-inner">
+      <div class="brand">Jacob West‑Roberts</div>
+      <nav class="nav" aria-label="Primary">
+        <a href="#work">Work</a>
+        <a href="#art">Art</a>
+        <a href="#research">Research</a>
+        <a href="#contact">Contact</a>
+      </nav>
+      <div class="header-actions">
+        <button id="toggle-controls" class="controls-toggle" aria-expanded="false" aria-controls="viz-controls" title="Open visualization controls">
+          <span aria-hidden="true">⚙︎</span>
+          <span class="controls-label">Controls</span>
+        </button>
+      </div>
     </div>
-  </aside>
+    <button id="toggle-header" class="header-handle" aria-expanded="true" aria-controls="site-header" aria-label="Toggle header">▲</button>
+  </header>
 
-  <header class="hero" role="banner">
-    <nav class="nav" aria-label="Primary">
-      <a href="#work">Work</a>
-      <a href="#art">Art</a>
-      <a href="#research">Research</a>
-      <a href="#contact">Contact</a>
-    </nav>
-    <div class="hero-copy">
-      <h1>Jacob West-Roberts</h1>
-      <p>Computational biologist building systems at the interface of <em>genomics</em>, <em>phylogenetics</em>, and <em>generative art</em>.</p>
-      <div class="actions">
+  <aside id="hero-panel" class="hero-panel" data-collapsed="false" aria-label="Hero panel">
+    <div class="panel-inner">
+      <button id="toggle-panel" class="ghost left-handle" aria-expanded="true" aria-controls="hero-panel" aria-label="Collapse panel">‹</button>
+      <h1>Computational Biology</h1>
+      <p>Systems at the interface of <em>genomics</em>, <em>phylogenetics</em>, and <em>generative art</em>.</p>
+      <div class="panel-cta">
         <a class="btn btn-gold" href="#work">Selected work</a>
         <a class="btn" href="#art">Art</a>
       </div>
     </div>
-  </header>
+  </aside>
+
+  <aside id="viz-controls" class="viz-controls" data-collapsed="true" aria-hidden="true" aria-labelledby="toggle-controls">
+    <div class="controls-inner" role="dialog" aria-modal="false">
+      <header class="controls-head">
+        <h2>Visualization Controls</h2>
+        <button id="close-controls" class="ghost" aria-label="Close controls">✕</button>
+      </header>
+      <form id="controls-form">
+        <fieldset>
+          <legend>Sequence</legend>
+          <div class="control-stack">
+            <label for="ctl-sequence">Paste DNA / protein sequence</label>
+            <textarea id="ctl-sequence" class="control-textarea" spellcheck="false" placeholder="ACGT… or ARND…WYV"></textarea>
+          </div>
+          <div class="controls-row">
+            <button type="button" id="ctl-apply-sequence" class="btn btn-gold">Render sequence</button>
+            <button type="button" id="ctl-center" class="btn">Center view</button>
+          </div>
+          <p class="control-hint">Sequences map deterministically; honors DNA &amp; protein alphabets.</p>
+          <p id="ctl-status" class="control-status" role="status" aria-live="polite">Ready.</p>
+        </fieldset>
+
+        <section class="telemetry" aria-live="polite" aria-atomic="true">
+          <header>
+            <span class="dot"></span>
+            <span class="telemetry-title">Active Parameters</span>
+          </header>
+          <pre id="ctl-telemetry" class="telemetry-body">loading…</pre>
+        </section>
+
+        <fieldset>
+          <legend>Animation Toggles</legend>
+          <label><input type="checkbox" id="ctl-anim-slice"> Slice sweep</label>
+          <label><input type="checkbox" id="ctl-anim-rotate"> 4D rotate (z–w)</label>
+          <label><input type="checkbox" id="ctl-anim-cloop"> c(t) loop</label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Fractal</legend>
+          <label>Slice (w) <input type="range" id="ctl-slice" min="-0.95" max="0.95" step="0.01"></label>
+          <label>Symmetry <input type="range" id="ctl-fold" min="0" max="1" step="0.01"></label>
+          <label>Detail (iters) <input type="range" id="ctl-iters" min="8" max="32" step="1"></label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Appearance</legend>
+          <label>Bloom <input type="range" id="ctl-bloom" min="0" max="2" step="0.01"></label>
+          <label>Exposure <input type="range" id="ctl-exposure" min="0.6" max="1.8" step="0.01"></label>
+          <label>Roughness <input type="range" id="ctl-rough" min="0.05" max="0.8" step="0.01"></label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Animation</legend>
+          <label>Amplitude <input type="range" id="ctl-slice-amp" min="0" max="0.4" step="0.005"></label>
+          <label>Speed <input type="range" id="ctl-slice-speed" min="0" max="0.15" step="0.001"></label>
+          <label>Rotate speed <input type="range" id="ctl-rotate-speed" min="0" max="0.1" step="0.001"></label>
+          <label>Loop scale <input type="range" id="ctl-cloop-scale" min="0" max="1" step="0.01"></label>
+          <label>Loop speed <input type="range" id="ctl-cloop-speed" min="0" max="0.1" step="0.001"></label>
+        </fieldset>
+
+        <fieldset class="docs-group">
+          <legend>
+            <button type="button" id="ctl-docs-toggle" class="btn-docs" aria-expanded="false" aria-controls="ctl-docs-content">Docs</button>
+          </legend>
+          <div id="ctl-docs-content" class="docs-content" hidden>
+            <section class="docs-pane" id="doc-sequences">
+              <h3>Sequences</h3>
+              <p>Paste DNA (ACGTN) or protein (standard amino acids) strings. The renderer maps length, entropy, GC content, and residue properties onto quaternion parameters.</p>
+            </section>
+            <section class="docs-pane" id="doc-animation">
+              <h3>Animation</h3>
+              <p>Slice sweep oscillates the w-plane. 4D rotation spins z–w. The c(t) loop traces a bounded path through quaternion space for evolving structures.</p>
+            </section>
+            <section class="docs-pane" id="doc-controls">
+              <h3>Controls</h3>
+              <p>All sliders update in real time. Use “Center view” after large adjustments to re-anchor the distance estimator.</p>
+            </section>
+          </div>
+        </fieldset>
+      </form>
+    </div>
+  </aside>
 
   <main id="content">
-    <section id="work" class="section"><h2>Selected Work</h2></section>
-    <section id="art" class="section"><h2>Art</h2></section>
-    <section id="research" class="section"><h2>Research</h2></section>
-    <section id="contact" class="section"><h2>Contact</h2></section>
+    <div id="hero-sentinel" aria-hidden="true"></div>
+
+    <section id="cv" class="section section--opaque">
+      <h2>Curriculum Vitae</h2>
+      <p>(Content placeholder)</p>
+    </section>
+
+    <section class="section section--skip" aria-hidden="true"></section>
+
+    <section id="contact" class="section section--opaque">
+      <h2>Contact</h2>
+      <p>(Content placeholder)</p>
+    </section>
   </main>
 
   <noscript>
-    <style>#bg{display:none}</style>
-    <img src="assets/poster/hero-poster.jpg" alt="Gold icosahedral quaternion-Julia fractal on black background" class="poster-fallback">
+    <style>#bg{display:none}.overlay-gradient{display:none}</style>
+    <p style="color:#eee;padding:1rem;background:#111">JavaScript is required to render the visualization.</p>
   </noscript>
 
   <script type="module">
+    import { createVisualizer } from './assets/js/visualizer.js';
     const canvas = document.getElementById('bg');
+    const viz = await createVisualizer(canvas, {
+      animateSlice: true,
+      animateRotation: false,
+      animateCLoop: false,
+      sliceAmplitude: 0.18,
+      sliceSpeed: 0.002,
+      bloom: 0.55,
+      exposure: 1.15,
+      roughness: 0.26,
+      fold: 0.80,
+      iterations: 24,
+      slice: 0.10,
+      cameraDistance: 4.0
+    });
+    window.__viz = viz;
 
-    const supportsWebGL = () => {
-      if (!canvas) return false;
-      try {
-        const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
-        if (gl && typeof gl.getParameter === 'function') gl.getParameter(gl.RENDERER);
-        return !!gl;
-      } catch (err) {
-        return false;
-      }
-    };
+    const mq = window.matchMedia('(prefers-reduced-motion)');
+    const applyRM = () => mq.matches ? viz.pause() : viz.resume();
+    applyRM();
+    if ('addEventListener' in mq) mq.addEventListener('change', applyRM);
 
-    let visualizer = null;
-    let handleResize = null;
-    let mq = null;
-    let mqListener = null;
-
-    const detachReducedMotion = () => {
-      if (!mq || !mqListener) return;
-      if ('removeEventListener' in mq) mq.removeEventListener('change', mqListener);
-      else if ('removeListener' in mq) mq.removeListener(mqListener);
-      mqListener = null;
-    };
-
-    const activateFallback = () => {
-      detachReducedMotion();
-      if (handleResize) {
-        window.removeEventListener('resize', handleResize);
-        handleResize = null;
-      }
-      if (visualizer) {
-        try {
-          visualizer.pause();
-          visualizer.dispose();
-        } catch (err) {
-          console.warn('Visualizer cleanup failed', err);
-        }
-        visualizer = null;
-      }
-      document.body.classList.add('no-webgl');
-    };
-
-    const normalizeSequence = (raw = '') => raw
-      .split('\n')
-      .filter(line => line && line[0] !== '>')
-      .join('')
-      .replace(/[^A-Za-z]/g, '')
-      .toUpperCase();
-
-    async function loadDefaultSequence(){
-      try {
-        const res = await fetch('./polyprotein.fna', { cache: 'force-cache' });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const seq = normalizeSequence(await res.text()).replace(/[^ACGT]/g, '');
-        return seq.length ? seq : null;
-      } catch (error) {
-        console.warn('Failed to load polyprotein.fna, falling back to canned seed', error);
-        return null;
-      }
-    }
-
-    if (!supportsWebGL()) {
-      activateFallback();
-    } else {
-      try {
-        const url = new URL(window.location.href);
-        let seq = normalizeSequence(url.searchParams.get('seq') || '');
-        if (!seq) {
-          const fetched = await loadDefaultSequence();
-          seq = fetched || 'ACGTACGTACGTACGTACGTACGTACGTACGTACGT';
-        }
-        const { createVisualizer } = await import('./assets/js/visualizer.js');
-        visualizer = await createVisualizer(canvas, {
-          sequence: seq,
-          animateSlice: true,
-          animateRotation: false,
-          animateCLoop: false,
-          bloom: 0.65,
-          exposure: 1.25,
-          roughness: 0.32,
-          fold: 0.82,
-          iterations: 24,
-          slice: 0.06,
-          cameraDistance: 4.2,
-          cameraAzimuth: -28,
-          cameraElevation: 18,
-          enablePost: true
-        });
-
-        const panel = document.getElementById('control-panel');
-        if (panel) {
-          const controls = {
-            panel,
-            body: document.getElementById('controlBody'),
-            toggle: document.getElementById('toggleControls'),
-            seqInput: document.getElementById('seqInput'),
-            applyBtn: document.getElementById('applySequence'),
-            resetBtn: document.getElementById('resetDefaults'),
-            recenterBtn: document.getElementById('recenterView'),
-            status: document.getElementById('controlStatus'),
-            animateSlice: document.getElementById('animateSlice'),
-            animateRotation: document.getElementById('animateRotation'),
-            animateCLoop: document.getElementById('animateCLoop'),
-            sliceAmp: document.getElementById('sliceAmpControl'),
-            sliceSpeed: document.getElementById('sliceSpeedControl'),
-            rotationSpeed: document.getElementById('rotationSpeedControl'),
-            cLoopScale: document.getElementById('cLoopScaleControl'),
-            cLoopSpeed: document.getElementById('cLoopSpeedControl')
-          };
-
-          const defaults = {
-            sequence: seq,
-            slice: 0.06,
-            fold: 0.82,
-            iterations: 24,
-            roughness: 0.32,
-            bloom: 0.65,
-            exposure: 1.25,
-            cameraDistance: 4.2,
-            cameraAzimuth: -28,
-            cameraElevation: 18,
-            animateSlice: true,
-            sliceAmplitude: 0.18,
-            sliceSpeed: 0.002,
-            animateRotation: false,
-            rotationSpeed: 0.022,
-            animateCLoop: false,
-            cLoopScale: 0.9,
-            cLoopSpeed: 0.02
-          };
-          const state = { ...defaults };
-
-          const setStatus = (message, isError = false) => {
-            if (!controls.status) return;
-            controls.status.textContent = message;
-            controls.status.classList.toggle('error', isError);
-          };
-
-          if (controls.seqInput) controls.seqInput.value = seq;
-          setStatus(`Loaded ${seq.length} character sequence.`);
-
-          const updateLabel = (id, value, formatter = (v) => Number(v).toFixed(2)) => {
-            const target = document.getElementById(id);
-            if (target) target.textContent = formatter(value);
-          };
-
-          const sliderConfigs = [
-            { key: 'slice', id: 'sliceControl', label: 'sliceValue', parse: parseFloat, format: (v) => v.toFixed(2) },
-            { key: 'fold', id: 'foldControl', label: 'foldValue', parse: parseFloat, format: (v) => v.toFixed(2) },
-            { key: 'iterations', id: 'iterationsControl', label: 'iterationsValue', parse: (v) => parseInt(v, 10), format: (v) => String(v) },
-            { key: 'roughness', id: 'roughnessControl', label: 'roughnessValue', parse: parseFloat, format: (v) => v.toFixed(2) },
-            { key: 'bloom', id: 'bloomControl', label: 'bloomValue', parse: parseFloat, format: (v) => v.toFixed(2) },
-            { key: 'exposure', id: 'exposureControl', label: 'exposureValue', parse: parseFloat, format: (v) => v.toFixed(2) },
-            { key: 'cameraDistance', id: 'cameraDistanceControl', label: 'cameraDistanceValue', parse: parseFloat, format: (v) => v.toFixed(2) },
-            { key: 'cameraAzimuth', id: 'cameraAzimuthControl', label: 'cameraAzimuthValue', parse: (v) => parseInt(v, 10), format: (v) => String(v) },
-            { key: 'cameraElevation', id: 'cameraElevationControl', label: 'cameraElevationValue', parse: (v) => parseInt(v, 10), format: (v) => String(v) },
-            { key: 'sliceAmplitude', id: 'sliceAmpControl', label: 'sliceAmpValue', parse: parseFloat, format: (v) => v.toFixed(2) },
-            { key: 'sliceSpeed', id: 'sliceSpeedControl', label: 'sliceSpeedValue', parse: parseFloat, format: (v) => v.toFixed(3) },
-            { key: 'rotationSpeed', id: 'rotationSpeedControl', label: 'rotationSpeedValue', parse: parseFloat, format: (v) => v.toFixed(3) },
-            { key: 'cLoopScale', id: 'cLoopScaleControl', label: 'cLoopScaleValue', parse: parseFloat, format: (v) => v.toFixed(2) },
-            { key: 'cLoopSpeed', id: 'cLoopSpeedControl', label: 'cLoopSpeedValue', parse: parseFloat, format: (v) => v.toFixed(3) }
-          ];
-
-          sliderConfigs.forEach(({ key, id, label, parse, format }) => {
-            const input = document.getElementById(id);
-            if (!input) return;
-            const formatter = format || ((v) => Number(v).toFixed(2));
-            const parser = parse || parseFloat;
-            input.value = state[key];
-            updateLabel(label, state[key], formatter);
-            input.addEventListener('input', (event) => {
-              const parsed = parser(event.target.value);
-              if (Number.isNaN(parsed)) return;
-              state[key] = parsed;
-              updateLabel(label, parsed, formatter);
-              visualizer.setParams({ [key]: parsed });
-            });
-          });
-
-          const syncAnimationControls = () => {
-            if (controls.sliceAmp) controls.sliceAmp.disabled = !state.animateSlice;
-            if (controls.sliceSpeed) controls.sliceSpeed.disabled = !state.animateSlice;
-            if (controls.rotationSpeed) controls.rotationSpeed.disabled = !state.animateRotation;
-            if (controls.cLoopScale) controls.cLoopScale.disabled = !state.animateCLoop;
-            if (controls.cLoopSpeed) controls.cLoopSpeed.disabled = !state.animateCLoop;
-          };
-
-          if (controls.animateSlice) {
-            controls.animateSlice.checked = state.animateSlice;
-            controls.animateSlice.addEventListener('change', () => {
-              state.animateSlice = controls.animateSlice.checked;
-              visualizer.setParams({
-                animateSlice: state.animateSlice,
-                sliceAmplitude: state.sliceAmplitude,
-                sliceSpeed: state.sliceSpeed
-              });
-              syncAnimationControls();
-            });
-          }
-
-          if (controls.animateRotation) {
-            controls.animateRotation.checked = state.animateRotation;
-            controls.animateRotation.addEventListener('change', () => {
-              state.animateRotation = controls.animateRotation.checked;
-              visualizer.setParams({
-                animateRotation: state.animateRotation,
-                rotationSpeed: state.rotationSpeed
-              });
-              syncAnimationControls();
-            });
-          }
-
-          if (controls.animateCLoop) {
-            controls.animateCLoop.checked = state.animateCLoop;
-            controls.animateCLoop.addEventListener('change', () => {
-              state.animateCLoop = controls.animateCLoop.checked;
-              visualizer.setParams({
-                animateCLoop: state.animateCLoop,
-                cLoopScale: state.cLoopScale,
-                cLoopSpeed: state.cLoopSpeed
-              });
-              syncAnimationControls();
-            });
-          }
-
-          syncAnimationControls();
-
-          const parameterKeys = [
-            'slice','fold','iterations','roughness','bloom','exposure',
-            'cameraDistance','cameraAzimuth','cameraElevation','animateSlice',
-            'sliceAmplitude','sliceSpeed','animateRotation','rotationSpeed',
-            'animateCLoop','cLoopScale','cLoopSpeed'
-          ];
-          const applyParamsFromState = (recenter = false) => {
-            const params = parameterKeys.reduce((obj, key) => {
-              obj[key] = state[key];
-              return obj;
-            }, {});
-            if (recenter) params.recenter = true;
-            visualizer.setParams(params);
-          };
-          applyParamsFromState();
-
-          const applySequence = () => {
-            if (!controls.seqInput) return;
-            const normalized = normalizeSequence(controls.seqInput.value);
-            if (!normalized.length) {
-              setStatus('No valid characters in sequence.', true);
-              return;
-            }
-            const ok = visualizer.setSequence(normalized);
-            if (ok) {
-              state.sequence = normalized;
-              setStatus(`Rendered sequence (${normalized.length} symbols).`);
-              controls.seqInput.value = normalized;
-            } else {
-              setStatus('Unable to render sequence.', true);
-            }
-          };
-
-          if (controls.applyBtn) controls.applyBtn.addEventListener('click', applySequence);
-
-          if (controls.resetBtn) controls.resetBtn.addEventListener('click', () => {
-            Object.assign(state, defaults);
-            if (controls.seqInput) controls.seqInput.value = defaults.sequence;
-            setStatus('Reset to defaults.');
-
-            sliderConfigs.forEach(({ key, id, label, format }) => {
-              const input = document.getElementById(id);
-              if (!input) return;
-              const formatter = format || ((v) => Number(v).toFixed(2));
-              input.value = state[key];
-              updateLabel(label, state[key], formatter);
-            });
-
-            if (controls.animateSlice) controls.animateSlice.checked = state.animateSlice;
-            if (controls.animateRotation) controls.animateRotation.checked = state.animateRotation;
-            if (controls.animateCLoop) controls.animateCLoop.checked = state.animateCLoop;
-            syncAnimationControls();
-
-            applyParamsFromState(true);
-            visualizer.setSequence(defaults.sequence);
-          });
-
-          if (controls.recenterBtn) {
-            controls.recenterBtn.addEventListener('click', () => {
-              visualizer.setParams({ recenter: true });
-              setStatus('Recentering view...');
-              requestAnimationFrame(() => setStatus('View recentered.'));
-            });
-          }
-
-          if (controls.toggle && controls.body) {
-            controls.toggle.addEventListener('click', () => {
-              const collapsed = controls.panel.classList.toggle('collapsed');
-              controls.toggle.setAttribute('aria-expanded', String(!collapsed));
-              controls.toggle.textContent = collapsed ? 'Show controls' : 'Hide controls';
-            });
-          }
-        }
-
-        handleResize = () => visualizer?.resize();
-        window.addEventListener('resize', handleResize, { passive: true });
-
-        mq = window.matchMedia('(prefers-reduced-motion)');
-        const applyReducedMotion = () => {
-          if (!visualizer) return;
-          mq.matches ? visualizer.pause() : visualizer.resume();
-        };
-        applyReducedMotion();
-        mqListener = applyReducedMotion;
-        if ('addEventListener' in mq) mq.addEventListener('change', mqListener);
-        else if ('addListener' in mq) mq.addListener(mqListener);
-
-        canvas.addEventListener('webglcontextlost', event => {
-          event.preventDefault();
-          activateFallback();
-        }, { once: true });
-      } catch (err) {
-        console.error('Visualizer failed to initialize', err);
-        activateFallback();
-      }
-    }
+    const { initLayout } = await import('./assets/js/layout.js');
+    const { initControls } = await import('./assets/js/ui-controls.js');
+    initLayout({ viz });
+    initControls({ viz });
   </script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 # jwestrob.github.io — Quaternion Julia Hero
 
-This static site renders an icosahedral quaternion–Julia fractal (Three.js) behind the hero section, preserving the black-and-gold aesthetic from `quaternion_julia.html`.
+This static microsite renders an icosahedral quaternion–Julia fractal (Three.js) as a live background. The UI now includes a collapsible header, a hero side panel, and a top-right controls drawer layered over the visualization.
 
 ## Local preview
 - Open `index.html` in any modern browser, or
@@ -11,14 +11,12 @@ This static site renders an icosahedral quaternion–Julia fractal (Three.js) be
 2. In **Settings → Pages**, choose **Branch: main / root**.
 3. (Optional) Add a custom domain and include a `CNAME` file.
 
-## Configuration
-- Hero defaults live in the inline module boot script in `index.html` and in `assets/js/visualizer.js`. A floating control panel (desktop) lets you tweak parameters, toggle animation, paste sequences, and manually recenter the view.
-- On first paint the hero fetches `polyprotein.fna`, normalizes it to uppercase DNA, and uses that as the default sequence unless a `?seq=` override is present.
-- `cameraAzimuth`/`cameraElevation` (degrees) steer the static view; `cameraDistance` keeps the fractal framed.
-- Set `enablePost: true` in `index.html` if you want bloom + FXAA postprocessing (disabled by default for faster paint).
-- Append `?seq=ACGT...` or amino-acid sequences to the page URL to derive fractal parameters.
-- Honors `prefers-reduced-motion`: animation stops automatically.
-- Falls back to `assets/poster/hero-poster.jpg` when WebGL or JavaScript is unavailable.
+## Configuration & UI
+- Header (≈7.5 vh) and left hero panel (≈25 vw) are collapsible via accessible toggles.
+- The ⚙︎ button opens a top-right controls drawer (Esc closes). Sliders call `window.__viz.setParams()` without rerender loops.
+- By default the drawer adjusts animation toggles, bloom/exposure/roughness, and fractal slice/fold/iterations.
+- The hero background pauses via `IntersectionObserver` when you scroll past the hero sentinel.
+- The site fetches `polyprotein.fna`, normalises it to uppercase DNA, and uses it as the default sequence unless you provide `?seq=`.
 
 ## License
 MIT for code. Artwork and sequences © Jacob West-Roberts.

@@ -150,7 +150,7 @@ export async function createVisualizer(canvas, opts = {}){
     sequence: null,
     animateSlice: false,
     sliceAmplitude: 0.18,
-    sliceSpeed: 0.035,
+    sliceSpeed: 0.002,
     animateRotation: false,
     rotationSpeed: 0.022,
     animateCLoop: false,
@@ -171,7 +171,26 @@ export async function createVisualizer(canvas, opts = {}){
   };
   const settings = { ...defaults, ...opts };
   let hasReducedOverride = Object.prototype.hasOwnProperty.call(opts, 'reducedMotion');
+  let manualMotionOverride = false;
   const cleanup = [];
+
+  if (!settings.sequence){
+    try {
+      const res = await fetch('./polyprotein.fna', { cache: 'force-cache' });
+      if (res.ok){
+        const raw = await res.text();
+        const seq = raw
+          .split('\n')
+          .filter(line => line && line[0] !== '>')
+          .join('')
+          .replace(/[^A-Za-z]/g, '')
+          .toUpperCase();
+        if (seq) settings.sequence = seq.replace(/[^ACGT]/g, '');
+      }
+    } catch (err) {
+      console.warn('Failed to load polyprotein.fna', err);
+    }
+  }
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
   renderer.autoClear = false;
@@ -346,6 +365,21 @@ export async function createVisualizer(canvas, opts = {}){
     if (!centroid) return null;
     uniforms.uOffset.value.copy(centroid);
     return centroid;
+  }
+
+  function recenter(){
+    const centroid = recenterFractal();
+    if (centroid) {
+      requestRender();
+    }
+    return centroid;
+  }
+
+  function getState(){
+    return {
+      ...settings,
+      reducedMotion: uniforms.uReduced.value === 1
+    };
   }
 
 
@@ -800,6 +834,24 @@ export async function createVisualizer(canvas, opts = {}){
     if (typeof rest.cLoopScale === 'number'){
       settings.cLoopScale = rest.cLoopScale;
     }
+    if (typeof rest.sliceSpeed === 'number'){
+      settings.sliceSpeed = rest.sliceSpeed;
+    }
+    if (typeof rest.rotationSpeed === 'number'){
+      settings.rotationSpeed = rest.rotationSpeed;
+    }
+    if (typeof rest.cLoopSpeed === 'number'){
+      settings.cLoopSpeed = rest.cLoopSpeed;
+    }
+    if (typeof rest.animateSlice === 'boolean'){
+      settings.animateSlice = rest.animateSlice;
+    }
+    if (typeof rest.animateRotation === 'boolean'){
+      settings.animateRotation = rest.animateRotation;
+    }
+    if (typeof rest.animateCLoop === 'boolean'){
+      settings.animateCLoop = rest.animateCLoop;
+    }
     let cameraChanged = false;
     if (typeof rest.cameraDistance === 'number'){
       settings.cameraDistance = rest.cameraDistance;
@@ -823,6 +875,21 @@ export async function createVisualizer(canvas, opts = {}){
       cleanup.length = 0;
       updateReducedUniform();
     }
+    const hasAnimations = settings.animateSlice || settings.animateRotation || settings.animateCLoop;
+
+    if (hasAnimations && uniforms.uReduced.value === 1){
+      manualMotionOverride = true;
+      hasReducedOverride = true;
+      settings.reducedMotion = false;
+      updateReducedUniform();
+      last = performance.now();
+    } else if (!hasAnimations && manualMotionOverride && !Object.prototype.hasOwnProperty.call(rest, 'reducedMotion')){
+      manualMotionOverride = false;
+      hasReducedOverride = false;
+      settings.reducedMotion = mq.matches;
+      updateReducedUniform();
+    }
+
     syncAnimUniforms();
     if (recenter){
       recenterFractal();
@@ -840,5 +907,5 @@ export async function createVisualizer(canvas, opts = {}){
     renderer.dispose();
   }
 
-  return { resize, pause, resume, setSequence, setParams, dispose };
+  return { resize, pause, resume, setSequence, setParams, recenter, getState, dispose };
 }
