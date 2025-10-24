@@ -33,12 +33,11 @@ button.ghost{background:transparent;border:1px solid #444;color:#eee;border-radi
 .controls-toggle .controls-label{font-size:12px;letter-spacing:.08em;text-transform:uppercase}
 .controls-toggle:hover{filter:brightness(1.05)}
 
-.hero-panel{position:fixed;top:var(--header-h);left:0;width:var(--panel-w);height:calc(100vh - var(--header-h));background:rgba(0,0,0,var(--overlay-alpha));backdrop-filter:saturate(1.1) blur(4px);transition:transform 220ms ease;z-index:9}
+.hero-panel{position:fixed;top:var(--header-h);left:0;width:var(--panel-w);height:calc(100vh - var(--header-h));background:rgba(0,0,0,var(--overlay-alpha));backdrop-filter:saturate(1.1) blur(4px);transition:transform 220ms ease, opacity 200ms ease;z-index:9;clip-path:var(--hero-clip, inset(0 -24px 0 0))}
 .hero-panel[data-collapsed="true"]{transform:translateX(calc(-1 * var(--panel-w) + 14px))}
-.hero-panel[data-outside="true"]{transform:translateX(calc(-1 * var(--panel-w) - clamp(24px,4vw,48px)));opacity:0;pointer-events:none}
+.hero-panel[data-outside="true"]{pointer-events:none;opacity:0}
 .panel-inner{height:100%;padding:16px 18px 24px;display:flex;flex-direction:column;gap:12px}
 .left-handle{position:absolute;right:-14px;top:12px;border-radius:8px;padding:6px 8px;background:rgba(14,14,14,0.8);color:#f8f0d0;border:1px solid rgba(212,175,55,0.4);backdrop-filter:blur(6px) saturate(1.25);box-shadow:0 6px 18px rgba(0,0,0,0.38)}
-.hero-panel[data-outside="true"] .left-handle{opacity:0}
 .panel-cta{display:flex;gap:12px;margin-top:auto;flex-wrap:wrap}
 
 .btn{display:inline-block;padding:10px 14px;border:1px solid #444;border-radius:8px;color:#fff;background:rgba(0,0,0,0.35)}
@@ -84,6 +83,7 @@ main{margin-top:100vh}
   :root{--panel-w:min(100vw,560px)}
   .hero-panel{left:0;right:0;width:100%;height:min(60vh,560px);bottom:0;top:auto;border-top-left-radius:12px;border-top-right-radius:12px}
   .hero-panel[data-collapsed="true"]{transform:translateY(calc(100% - 14px))}
+  .panel-inner{height:100%;padding:18px 16px 24px}
   .overlay-gradient{background:linear-gradient(90deg,rgba(0,0,0,0.9) 0%,rgba(0,0,0,0.55) 40%,rgba(0,0,0,0.0) 70%)}
   .viz-controls{width:min(92vw,420px)}
 }

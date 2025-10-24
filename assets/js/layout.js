@@ -57,33 +57,38 @@ export function initLayout({ viz } = {}){
     if (panel.getAttribute('data-collapsed') === 'false'){ setCollapsed(panel, true); }
   });
 
-  const getHeaderHeight = () => header ? header.offsetHeight : 0;
-  const getHeroBoundary = () => {
-    if (!sentinel) return window.innerHeight;
-    const rect = sentinel.getBoundingClientRect();
-    const scrollTop = window.scrollY || window.pageYOffset || 0;
-    return rect.top + scrollTop;
-  };
+  if (panel){
+    const getBoundary = () => {
+      const scrollTop = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
+      if (sentinel){
+        const rect = sentinel.getBoundingClientRect();
+        return rect.top + scrollTop;
+      }
+      return window.innerHeight + scrollTop;
+    };
 
-  const updateScrollState = () => {
-    const scrollTop = window.scrollY || window.pageYOffset || 0;
-    const heroBoundary = getHeroBoundary();
-    const headerHeight = getHeaderHeight();
-    const outside = (scrollTop + headerHeight) >= heroBoundary;
+    const updateClip = () => {
+      const scrollTop = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
+      const headerHeight = header ? header.offsetHeight : 0;
+      const panelHeight = Math.max(0, window.innerHeight - headerHeight);
+      const boundary = getBoundary();
+      const remaining = boundary - (scrollTop + headerHeight);
+      const visible = Math.max(0, Math.min(panelHeight, remaining));
+      const clipBottom = Math.max(0, panelHeight - visible);
+      const hidden = visible <= 32;
 
-    if (panel){
-      panel.setAttribute('data-outside', outside ? 'true' : 'false');
-      panel.setAttribute('aria-hidden', outside ? 'true' : 'false');
-    }
+      panel.style.setProperty('--hero-clip', `inset(0 -24px ${clipBottom}px 0)`);
+      panel.setAttribute('data-outside', hidden ? 'true' : 'false');
+      panel.setAttribute('aria-hidden', hidden ? 'true' : 'false');
 
-    if (viz && typeof viz.pause === 'function' && typeof viz.resume === 'function'){
-      const pauseLimit = heroBoundary - headerHeight * 0.6;
-      if (scrollTop >= pauseLimit) viz.pause();
-      else viz.resume();
-    }
-  };
+      if (viz && typeof viz.pause === 'function' && typeof viz.resume === 'function'){
+        if (hidden) viz.pause();
+        else viz.resume();
+      }
+    };
 
-  updateScrollState();
-  window.addEventListener('scroll', updateScrollState, { passive: true });
-  window.addEventListener('resize', updateScrollState);
+    updateClip();
+    window.addEventListener('scroll', updateClip, { passive: true });
+    window.addEventListener('resize', updateClip);
+  }
 }

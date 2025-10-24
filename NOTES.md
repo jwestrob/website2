@@ -13,7 +13,7 @@
 - Header handle now rotates independently of the header (`data-collapsed` mirrored onto the button) so collapsing/restoring works reliably.
 - Controls drawer slides completely out of view when collapsed (`translateX(100% + clamp(12px,2vw,32px))`), removing the visible sliver on wide or narrow displays.
 - Added a “Active Parameters” telemetry panel beneath the sequence block to display the live visualizer settings; updates via `syncControls` in `assets/js/ui-controls.js`.
-- Hero side panel auto-hides once you scroll past the hero boundary (`data-outside="true"`), preventing overlap with CV/contact sections while keeping collapse controls available above the fold.
+- Hero side panel remains glassy/fixed over the hero; a scroll-based clip-path (with right bleed for the grab arrow) trims it away as the CV sentinel approaches, preventing overlap while pausing the visualizer.
 
 ## Current Focus
 - Visualizer defaults still load `polyprotein.fna` when no sequence is supplied; revisit once real copy/links are ready.
