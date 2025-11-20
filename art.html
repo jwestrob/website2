@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Generative Art — Jacob West‑Roberts</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0A0A0A" />
+    <link rel="icon" href="assets/poster/hero-poster.jpg">
+    <link rel="stylesheet" href="assets/css/site.css" />
+</head>
+
+<body>
+    <!-- Reusing the visualizer background here would be cool, but keeping it simple for now -->
+    <canvas id="bg" aria-hidden="true"
+        style="opacity: 0.3; position: fixed; inset: 0; width: 100%; height: 100%; z-index: -2; background: #000;"></canvas>
+    <div class="overlay-gradient" aria-hidden="true"></div>
+
+    <header id="site-header" class="site-header" role="banner">
+        <div class="header-inner">
+            <div class="brand"><a href="index.html" style="color: #fff;">Jacob West‑Roberts</a></div>
+            <nav class="nav" aria-label="Primary">
+                <a href="research.html">Research</a>
+                <a href="art.html" aria-current="page" style="color: var(--gold);">Art</a>
+                <a href="index.html#cv">CV</a>
+            </nav>
+        </div>
+    </header>
+
+    <main id="content" style="margin-top: var(--header-h);">
+        <section class="section art-section animate-on-scroll"
+            style="opacity:0; min-height: 80vh; justify-content: flex-start; padding-top: 40px;">
+            <h1>Generative Art</h1>
+            <p style="font-size: 1.2rem; color: #ccc; max-width: 600px; margin-bottom: 40px;">
+                Explorations in algorithmic beauty, complex systems, and digital aesthetics.
+            </p>
+
+            <div class="cv-grid">
+                <a href="heliophase.html" class="cv-block" style="text-decoration: none; display: block;">
+                    <h3>Heliophase</h3>
+                    <p>Interactive generative art exploring multimodal spherical harmonics and marching cubes.</p>
+                    <div class="cv-link" style="margin-top: 12px; display: inline-block;">GO</div>
+                </a>
+
+                <a href="quasicrystal.html" class="cv-block" style="text-decoration: none; display: block;">
+                    <h3>Quasicrystal Explorer</h3>
+                    <p>Streamed point-cloud renderer visualizing high-dimensional quasicrystal slices.</p>
+                    <div class="cv-link" style="margin-top: 12px; display: inline-block;">GO</div>
+                </a>
+
+                <a href="hyperspin.html" class="cv-block" style="text-decoration: none; display: block;">
+                    <h3>Hyperspin</h3>
+                    <p>High-performance isoclinic rotation visualizer using Wigner-D matrices and Clebsch-Gordan
+                        coefficients.</p>
+                    <div class="cv-link" style="margin-top: 12px; display: inline-block;">GO</div>
+                </a>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="footer-inner">
+            <p>&copy; 2025 Jacob West‑Roberts</p>
+            <div class="footer-links">
+                <a href="https://github.com/jwestrob" target="_blank" rel="noopener">GitHub</a>
+                <a href="https://linkedin.com/in/jwestrob" target="_blank" rel="noopener">LinkedIn</a>
+                <a href="https://scholar.google.com/citations?user=AqcNAskAAAAJ&hl=en" target="_blank"
+                    rel="noopener">Scholar</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Simple scroll animation
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('fade-in-up');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.1 });
+        document.querySelectorAll('.animate-on-scroll').forEach(el => observer.observe(el));
+    </script>
+</body>
+
+</html>

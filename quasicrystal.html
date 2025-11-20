@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Quasicrystal Explorer — Jacob West‑Roberts</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0A0A0A" />
+    <link rel="icon" href="assets/poster/hero-poster.jpg">
+    <link rel="stylesheet" href="assets/css/site.css" />
+    <style>
+        /* Specific styles for the art wrapper */
+        .art-wrapper {
+            position: fixed;
+            top: var(--header-h);
+            left: 0;
+            width: 100%;
+            height: calc(100% - var(--header-h));
+            z-index: 0;
+            /* Behind header but accessible */
+            box-sizing: border-box;
+            background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
+            margin: 0;
+            /* Override site.css main margin */
+            padding: 0;
+            overflow: hidden;
+        }
+
+        #viz-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        /* Ensure header sits on top */
+        .site-header {
+            z-index: 100;
+            background: rgba(10, 10, 10, 0.8);
+            /* Slightly more opaque for readability over art */
+            backdrop-filter: blur(12px);
+        }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+
+<body>
+    <header id="site-header" class="site-header" role="banner">
+        <div class="header-inner">
+            <div class="brand"><a href="index.html" style="color: #fff;">Jacob West‑Roberts</a></div>
+            <nav class="nav" aria-label="Primary">
+                <a href="research.html">Research</a>
+                <a href="art.html" style="color: var(--gold);">Art</a>
+                <a href="index.html#cv">CV</a>
+
+
+            </nav>
+        </div>
+    </header>
+
+    <main class="art-wrapper">
+        <div id="viz-container"></div>
+    </main>
+
+    <script type="module">
+        import { Quasicrystal } from './assets/js/Quasicrystal.js';
+        // Initialize with the container
+        new Quasicrystal(document.getElementById('viz-container'));
+    </script>
+
+</body>
+
+</html>

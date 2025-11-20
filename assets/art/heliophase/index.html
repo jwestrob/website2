@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>Heliophase — Multimodal Marble</title>
+  <style>
+    html,
+    body {
+      margin: 0;
+      height: 100%;
+      background: #000;
+      overflow: hidden
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block
+    }
+
+    #msg {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      color: #ffe;
+      text-shadow: 0 0 5px #000;
+      font-family: monospace;
+      z-index: 10
+    }
+  </style>
+
+  <!-- —— IMPORT MAP —— -->
+  <script type="importmap">
+{
+  "imports": {
+    "three":             "https://unpkg.com/three@0.164.0/build/three.module.js",
+    "three/addons/MarchingCubes": "https://unpkg.com/three@0.164.0/examples/jsm/objects/MarchingCubes.js?module",
+    "https://unpkg.com/three@latest?module": "https://unpkg.com/three@0.164.0/build/three.module.js",
+    "lil-gui":           "https://unpkg.com/lil-gui@0.18.2/dist/lil-gui.esm.min.js"
+  }
+}
+</script>
+
+  <!-- CCapture (via jsDelivr, correct MIME) -->
+  <script src="https://cdn.jsdelivr.net/npm/ccapture.js@1.1.0/build/CCapture.all.min.js"></script>
+</head>
+
+<body>
+  <div id="msg">Press [R] to record 6 s GIF</div>
+  <canvas id="c"></canvas>
+
+  <script type="module">
+    /* ───────────────── IMPORTS ───────────────── */
+    import * as THREE from 'three';
+    import { MarchingCubes } from 'three/addons/MarchingCubes';
+    import GUI from 'lil-gui';
+
+    /* ───────────────── PARAMETERS ───────────────── */
+    const P = {
+      l: 18, m1: 12, m2: 9, amp: 0.5, lambda: 0,
+      rotSpeed: 1e-5, pts: 3000, lineWidth: 2,
+      phaseColor: true, gifSec: 6, fps: 60
+    };
+
+    /* ───────────────── MATH UTILS ───────────────── */
+    const F = n => n < 2 ? 1 : n * F(n - 1);
+    function Pnm(l, m, x) {
+      if (m < 0 || m > l) return 0;
+      if (l === m) return (-1) ** m * 2 ** l * F(l) * (1 - x * x) ** (l / 2);
+      if (l === m + 1) return x * (2 * m + 1) * Pnm(m, m, x);
+      return ((2 * l - 1) * x * Pnm(l - 1, m, x) - (l + m - 1) * Pnm(l - 2, m, x)) / (l - m);
+    }
+    const Yre = (l, m, t, p) => Math.sqrt((2 * l + 1) / (4 * Math.PI) * F(l - m) / F(l + m)) * Pnm(l, m, Math.cos(t)) * Math.cos(m * p);
+    const Yim = (l, m, t, p) => Math.sqrt((2 * l + 1) / (4 * Math.PI) * F(l - m) / F(l + m)) * Pnm(l, m, Math.cos(t)) * Math.sin(m * p);
+
+    /* ───────────────── THREE SET‑UP ───────────────── */
+    const canvas = document.getElementById('c');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true, alpha: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight, false);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 1000);
+    camera.position.z = 14;
+    addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight, false); });
+    scene.add(new THREE.AmbientLight(0xffffff, 0.25));
+    const light = new THREE.PointLight(0xfff7c0, 2, 60);
+    light.position.set(0, 0, 10);
+    scene.add(light);
+
+    /* ───────────────── SANITY CHECK CUBE (REMOVED) ───────────────── */
+    // const debugGeo = new THREE.BoxGeometry(5, 5, 5);
+    // const debugMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+    // const debugCube = new THREE.Mesh(debugGeo, debugMat);
+    // scene.add(debugCube);
+
+    /* ───────────────── LATTICE ───────────────── */
+    const pos0 = new Float32Array(P.pts * 3);
+    const φg = (1 + Math.sqrt(5)) / 2;
+    for (let i = 0; i < P.pts; i++) {
+      const k = i + 0.5, θ = Math.acos(1 - 2 * k / P.pts), φ = 2 * Math.PI * k / φg / φg;
+      pos0[3 * i] = Math.sin(θ) * Math.cos(φ);
+      pos0[3 * i + 1] = Math.sin(θ) * Math.sin(φ);
+      pos0[3 * i + 2] = Math.cos(θ);
+    }
+
+    /* ───────────────── POINT CLOUD ───────────────── */
+    const pos = new Float32Array(P.pts * 3), col = new Float32Array(P.pts * 3), amp = new Float32Array(P.pts);
+    const gPts = new THREE.BufferGeometry();
+    gPts.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    gPts.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const posAttr = gPts.attributes.position;
+    const colAttr = gPts.attributes.color;
+    const mPts = new THREE.PointsMaterial({ vertexColors: true, size: 0.01 });
+    const cloud = new THREE.Points(gPts, mPts);
+
+    /* ───────────────── NODAL ARCS (simple lines) ───────────────── */
+    const gLine = new THREE.BufferGeometry();
+    const mLine = new THREE.LineBasicMaterial({ color: 0xffd700, opacity: 0.25, transparent: true });
+    const arcs = new THREE.LineSegments(gLine, mLine);
+
+    /* ───────────────── CHLADNI GLASS ───────────────── */
+    const mcMat = new THREE.MeshPhysicalMaterial({ color: 0x66ccff, transparent: true, opacity: 0.08, roughness: 0, metalness: 0 });
+    const mc = new MarchingCubes(32, mcMat, true, true);
+    mc.scale.setScalar(6);
+
+    /* ───────────────── GROUP ───────────────── */
+    const grp = new THREE.Group();
+    grp.add(cloud, arcs, mc);
+    scene.add(grp);
+
+    /* ───────────────── COLOR MAPS ───────────────── */
+    const hueBase = 0.14;
+    const h2c = h => new THREE.Color().setHSL(hueBase, 0.9, 0.4 + 0.6 * (h + 1) / 2);
+    const phase2c = p => new THREE.Color().setHSL((p + Math.PI) / (2 * Math.PI), 0.85, 0.55);
+
+    /* ───────────────── CCAPTURE ───────────────── */
+    const capt = new CCapture({ format: 'gif', framerate: P.fps, workersPath: 'https://cdn.jsdelivr.net/npm/ccapture.js@1.1.0/build/' });
+    let rec = false, frames = 0;
+    addEventListener('keydown', e => { if ((e.key === 'r' || e.key === 'R') && !rec) { rec = true; frames = 0; capt.start(); msg.textContent = 'Recording…'; } });
+
+    /* ───────────────── GUI ───────────────── */
+    const gui = new GUI();
+    ['l', 'm1', 'm2', 'amp', 'lambda', 'rotSpeed'].forEach(k => gui.add(P, k, 0, (k === 'amp') ? 1 : 30, (k === 'rotSpeed') ? 1e-6 : 1));
+
+    /* ───────────────── MAIN LOOP ───────────────── */
+    const clock = new THREE.Clock();
+    console.log("Heliophase: Starting animation loop");
+    renderer.setAnimationLoop(() => {
+      const t = clock.getElapsedTime();
+      // if (Math.floor(t) % 2 === 0 && Math.floor(t*60)%60 === 0) {
+      //    console.log("Heliophase: Rendering...", t);
+      //    console.log("Camera Z:", camera.position.z);
+      //    console.log("Scene children:", scene.children.length);
+      // }
+
+      const blend = Math.sin(0.9 * t);
+      const ca = Math.cos(P.rotSpeed * t), sa = Math.sin(P.rotSpeed * t);
+
+      const seg = [];          // node line segments
+      for (let i = 0; i < P.pts; i++) {
+        const ix = 3 * i, iy = ix + 1, iz = ix + 2;
+        const x0 = pos0[ix], y0 = pos0[iy], z0 = pos0[iz];
+        const θ = Math.acos(z0), φ = Math.atan2(y0, x0);
+        const Re = blend * Yre(P.l, P.m1, θ, φ) + Math.sqrt(1 - blend * blend) * Yre(P.l, P.m2, θ, φ);
+        const Im = blend * Yim(P.l, P.m1, θ, φ) + Math.sqrt(1 - blend * blend) * Yim(P.l, P.m2, θ, φ);
+        const H = P.amp * Math.sqrt(Re * Re + Im * Im) * Math.sign(Re);
+        amp[i] = H;
+
+        const phase = Math.atan2(Im, Re);
+        const r = 1 + H;
+        let x = r * x0, y = r * y0, z = r * z0, w = 0;
+        const nx = x * ca + w * sa, nw = -x * sa + w * ca;
+        const ny = y * ca + z * sa, nz = -y * sa + z * ca;
+        const k = 5 / (2 - P.lambda * nw);      // bounded projection
+        pos[ix] = nx * k; pos[iy] = ny * k; pos[iz] = nz * k;
+
+        const c = P.phaseColor ? phase2c(phase) : h2c(H);
+        col[ix] = c.r; col[iy] = c.g; col[iz] = c.b;
+      }
+      posAttr.needsUpdate = true;
+      colAttr.needsUpdate = true;
+
+      /* build nodal arcs */
+      for (let i = 0; i < P.pts; i++) {
+        const s = amp[i] > 0;
+        for (let d = 1; d <= 25; d++) {
+          const j = (i + d) % P.pts;
+          if (s !== amp[j] > 0) {
+            seg.push(pos[3 * i], pos[3 * i + 1], pos[3 * i + 2], pos[3 * j], pos[3 * j + 1], pos[3 * j + 2]);
+          }
+        }
+      }
+      gLine.setAttribute('position', new THREE.BufferAttribute(new Float32Array(seg), 3));
+      gLine.computeBoundingSphere();
+      arcs.computeLineDistances();
+
+      /* quick Chladni glass update: one iso‑value */
+      mc.reset();
+      mc.isolation = 0;
+      mc.fieldNeedsUpdate = true;
+
+      grp.rotation.y = 0.25 * t;
+      grp.rotation.x = 0.11 * t;
+
+      renderer.render(scene, camera);
+
+      if (rec) {
+        capt.capture(canvas);
+        if (++frames >= P.fps * P.gifSec) { capt.stop(); capt.save(); rec = false; msg.textContent = 'GIF saved!'; }
+      }
+    });
+  </script>
+</body>
+
+</html>

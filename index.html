@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8" />
   <title>Jacob West‑Roberts — Computational Biology</title>
@@ -7,10 +8,14 @@
   <meta name="theme-color" content="#0A0A0A" />
   <link rel="icon" href="assets/poster/hero-poster.jpg">
   <link rel="preload" href="https://unpkg.com/three@0.161.0/build/three.module.js" as="script" crossorigin="anonymous">
-  <link rel="preload" href="https://unpkg.com/three@0.161.0/examples/jsm/postprocessing/EffectComposer.js" as="script" crossorigin="anonymous">
-  <link rel="preload" href="https://unpkg.com/three@0.161.0/examples/jsm/postprocessing/UnrealBloomPass.js" as="script" crossorigin="anonymous">
-  <link rel="preload" href="https://unpkg.com/three@0.161.0/examples/jsm/postprocessing/ShaderPass.js" as="script" crossorigin="anonymous">
-  <link rel="preload" href="https://unpkg.com/three@0.161.0/examples/jsm/shaders/FXAAShader.js" as="script" crossorigin="anonymous">
+  <link rel="preload" href="https://unpkg.com/three@0.161.0/examples/jsm/postprocessing/EffectComposer.js" as="script"
+    crossorigin="anonymous">
+  <link rel="preload" href="https://unpkg.com/three@0.161.0/examples/jsm/postprocessing/UnrealBloomPass.js" as="script"
+    crossorigin="anonymous">
+  <link rel="preload" href="https://unpkg.com/three@0.161.0/examples/jsm/postprocessing/ShaderPass.js" as="script"
+    crossorigin="anonymous">
+  <link rel="preload" href="https://unpkg.com/three@0.161.0/examples/jsm/shaders/FXAAShader.js" as="script"
+    crossorigin="anonymous">
   <link rel="stylesheet" href="assets/css/site.css" />
   <script type="importmap">
     {
@@ -21,6 +26,7 @@
     }
   </script>
 </head>
+
 <body>
   <canvas id="bg" aria-hidden="true"></canvas>
   <div class="overlay-gradient" aria-hidden="true"></div>
@@ -29,34 +35,47 @@
     <div class="header-inner">
       <div class="brand">Jacob West‑Roberts</div>
       <nav class="nav" aria-label="Primary">
-        <a href="#work">Work</a>
-        <a href="#art">Art</a>
-        <a href="#research">Research</a>
-        <a href="#contact">Contact</a>
+        <a href="research.html">Research</a>
+        <a href="art.html">Art</a>
+        <a href="index.html#cv">CV</a>
+
+
       </nav>
       <div class="header-actions">
-        <button id="toggle-controls" class="controls-toggle" aria-expanded="false" aria-controls="viz-controls" title="Open visualization controls">
+        <button id="toggle-controls" class="controls-toggle" aria-expanded="false" aria-controls="viz-controls"
+          title="Open visualization controls">
           <span aria-hidden="true">⚙︎</span>
           <span class="controls-label">Controls</span>
         </button>
       </div>
     </div>
-    <button id="toggle-header" class="header-handle" aria-expanded="true" aria-controls="site-header" aria-label="Toggle header">▲</button>
+
   </header>
 
   <aside id="hero-panel" class="hero-panel" data-collapsed="false" aria-label="Hero panel">
     <div class="panel-inner">
-      <button id="toggle-panel" class="ghost left-handle" aria-expanded="true" aria-controls="hero-panel" aria-label="Collapse panel">‹</button>
-      <h1>Computational Biology</h1>
-      <p>Systems at the interface of <em>genomics</em>, <em>phylogenetics</em>, and <em>generative art</em>.</p>
+      <button id="toggle-panel" class="ghost left-handle" aria-expanded="true" aria-controls="hero-panel"
+        aria-label="Collapse panel">‹</button>
+      <h1>Jacob West-Roberts</h1>
+      <p class="subtitle">Computational biologist building AI systems for weird biology.</p>
+      <div class="bio-text">
+        <p>I work on microbes, massive datasets, and the kind of proteins that make structure predictors nervous. A lot
+          of my time is spent wiring up AI agents, models, and tooling for bioinformatic analysis. I work to make messy
+          genomic data explorable and fold difficult proteins.</p>
+        <p>I have a strong drive to find ways to leverage novel biology to develop environmental bioremediation
+          techniques, especially in the pursuit of cleaning up mine pollution in the mountains of Colorado.</p>
+        <p>Most of my work goes into designing AI-driven analysis workflows. In my spare time, I love making generative
+          mathematical art (see the <a href="art.html">Art page</a>!) and hunting for cool rocks.</p>
+      </div>
       <div class="panel-cta">
-        <a class="btn btn-gold" href="#work">Selected work</a>
-        <a class="btn" href="#art">Art</a>
+        <a class="btn btn-gold" href="research.html">Research</a>
+        <a class="btn" href="art.html">Art</a>
       </div>
     </div>
   </aside>
 
-  <aside id="viz-controls" class="viz-controls" data-collapsed="true" aria-hidden="true" aria-labelledby="toggle-controls">
+  <aside id="viz-controls" class="viz-controls" data-collapsed="true" aria-hidden="true"
+    aria-labelledby="toggle-controls">
     <div class="controls-inner" role="dialog" aria-modal="false">
       <header class="controls-head">
         <h2>Visualization Controls</h2>
@@ -67,7 +86,8 @@
           <legend>Sequence</legend>
           <div class="control-stack">
             <label for="ctl-sequence">Paste DNA / protein sequence</label>
-            <textarea id="ctl-sequence" class="control-textarea" spellcheck="false" placeholder="ACGT… or ARND…WYV"></textarea>
+            <textarea id="ctl-sequence" class="control-textarea" spellcheck="false"
+              placeholder="ACGT… or ARND…WYV"></textarea>
           </div>
           <div class="controls-row">
             <button type="button" id="ctl-apply-sequence" class="btn btn-gold">Render sequence</button>
@@ -117,20 +137,24 @@
 
         <fieldset class="docs-group">
           <legend>
-            <button type="button" id="ctl-docs-toggle" class="btn-docs" aria-expanded="false" aria-controls="ctl-docs-content">Docs</button>
+            <button type="button" id="ctl-docs-toggle" class="btn-docs" aria-expanded="false"
+              aria-controls="ctl-docs-content">Docs</button>
           </legend>
           <div id="ctl-docs-content" class="docs-content" hidden>
             <section class="docs-pane" id="doc-sequences">
               <h3>Sequences</h3>
-              <p>Paste DNA (ACGTN) or protein (standard amino acids) strings. The renderer maps length, entropy, GC content, and residue properties onto quaternion parameters.</p>
+              <p>Paste DNA (ACGTN) or protein (standard amino acids) strings. The renderer maps length, entropy, GC
+                content, and residue properties onto quaternion parameters.</p>
             </section>
             <section class="docs-pane" id="doc-animation">
               <h3>Animation</h3>
-              <p>Slice sweep oscillates the w-plane. 4D rotation spins z–w. The c(t) loop traces a bounded path through quaternion space for evolving structures.</p>
+              <p>Slice sweep oscillates the w-plane. 4D rotation spins z–w. The c(t) loop traces a bounded path through
+                quaternion space for evolving structures.</p>
             </section>
             <section class="docs-pane" id="doc-controls">
               <h3>Controls</h3>
-              <p>All sliders update in real time. Use “Center view” after large adjustments to re-anchor the distance estimator.</p>
+              <p>All sliders update in real time. Use “Center view” after large adjustments to re-anchor the distance
+                estimator.</p>
             </section>
           </div>
         </fieldset>
@@ -141,23 +165,164 @@
   <main id="content">
     <div id="hero-sentinel" aria-hidden="true"></div>
 
-    <section id="cv" class="section section--opaque">
+
+
+    <section id="cv" class="section section--opaque cv-section">
       <h2>Curriculum Vitae</h2>
-      <p>(Content placeholder)</p>
+      <div class="cv-grid">
+        <div class="cv-column">
+          <div class="cv-block animate-on-scroll" style="opacity:0">
+            <h3>Education</h3>
+            <div class="cv-item">
+              <span class="cv-date">2018 – 2023</span>
+              <h4>Ph.D. in Environmental Science, Policy and Management</h4>
+              <p>University of California, Berkeley</p>
+            </div>
+            <div class="cv-item">
+              <span class="cv-date">2016 – 2017</span>
+              <h4>M.S. in Computational Biology</h4>
+              <p>Carnegie Mellon University</p>
+            </div>
+            <div class="cv-item">
+              <span class="cv-date">2012 – 2016</span>
+              <h4>B.A. in Molecular, Cellular &amp; Developmental Biology</h4>
+              <p>University of Colorado Boulder · Minors in Math &amp; Chemistry</p>
+            </div>
+          </div>
+
+          <div class="cv-block animate-on-scroll" style="opacity:0">
+            <h3>Technical Proficiencies</h3>
+            <div class="cv-skills">
+              <div>
+                <h4>Programming Languages</h4>
+                <ul>
+                  <li>Python</li>
+                  <li>Bash</li>
+                  <li>R</li>
+                  <li>Julia</li>
+                  <li>C++</li>
+                </ul>
+              </div>
+              <div>
+                <h4>Fields of Expertise</h4>
+                <ul>
+                  <li>Metagenomics &amp; Metatranscriptomics</li>
+                  <li>Phylogenetics</li>
+                  <li>Protein Language Models</li>
+                  <li>Machine Learning</li>
+                  <li>Metaproteomics</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cv-column">
+          <div class="cv-block animate-on-scroll" style="opacity:0">
+            <h3>Professional Experience</h3>
+            <div class="cv-item">
+              <span class="cv-date">2024 – Present</span>
+              <h4>Consulting Computational Biologist</h4>
+              <p>Sift Biosciences · San Carlos, CA</p>
+              <ul>
+                <li>Built pipelines to identify peptide targets for cancer immunotherapy vaccine development.</li>
+              </ul>
+            </div>
+            <div class="cv-item">
+              <span class="cv-date">2024</span>
+              <h4>Computational Biologist</h4>
+              <p>Tatta Bio · Remote</p>
+              <ul>
+                <li>Developed genome-context-aware similarity search tooling for internal web application.</li>
+                <li>Created benchmarks for assessing state-of-the-art protein language models.</li>
+              </ul>
+            </div>
+            <div class="cv-item">
+              <span class="cv-date">2018 – 2023</span>
+              <h4>Ph.D. Researcher · Banfield Lab</h4>
+              <p>University of California, Berkeley</p>
+              <ul>
+                <li>Led metagenomic and metatranscriptomic analyses of montane soil microbial communities.</li>
+                <li>Characterized giant genes in candidate phylum Omnitrophota and their ecological roles.</li>
+                <li>Engineered scalable HMM-based annotation pipelines for large metagenome datasets.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cv-block cv-publications animate-on-scroll" style="opacity:0">
+        <h3>Selected Publications <a class="cv-link" href="https://scholar.google.com/citations?user=AqcNAskAAAAJ&hl=en"
+            target="_blank" rel="noopener">Google&nbsp;Scholar</a></h3>
+        <ul class="cv-publication-list">
+          <li>West-Roberts, J.A. <em>et al.</em> (2024). “Diverse genomic embedding benchmark for functional evaluation
+            across the tree of life.” <em>bioRxiv</em>.</li>
+          <li>West-Roberts, J.A. <em>et al.</em> (2023). “Giant genes are rare but implicated in cell wall degradation
+            by predatory bacteria.” <em>bioRxiv</em>.</li>
+          <li>Al-Shayeb, B. <em>et al.</em> (2021). “Borgs are giant extrachromosomal elements with the potential to
+            expand metabolic capacity.” <em>Nature</em>.</li>
+        </ul>
+      </div>
     </section>
 
     <section class="section section--skip" aria-hidden="true"></section>
 
-    <section id="contact" class="section section--opaque">
-      <h2>Contact</h2>
-      <p>(Content placeholder)</p>
+    <section id="contact" class="section section--opaque contact-section animate-on-scroll" style="opacity:0">
+      <div class="contact-card">
+        <h2>Contact</h2>
+        <p>Reach out if you’d like to collaborate or learn more about my work.</p>
+        <form class="contact-form" action="mailto:jacobwestroberts@berkeley.edu" method="post" enctype="text/plain">
+          <div class="contact-grid">
+            <label>
+              <span>Name</span>
+              <input type="text" name="name" placeholder="Your name" required>
+            </label>
+            <label>
+              <span>Email</span>
+              <input type="email" name="email" placeholder="you@example.com" required>
+            </label>
+          </div>
+          <label class="contact-message">
+            <span>Message</span>
+            <textarea name="message" rows="5" placeholder="How can I help?" required></textarea>
+          </label>
+          <div class="contact-actions">
+            <button type="submit" class="btn btn-gold">Send Email</button>
+            <p class="contact-note">Submitting opens your email client with the message pre-filled.</p>
+          </div>
+        </form>
+      </div>
     </section>
   </main>
 
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <p>&copy; 2025 Jacob West‑Roberts</p>
+      <div class="footer-links">
+        <a href="https://github.com/jwestrob" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://linkedin.com/in/jwestrob" target="_blank" rel="noopener">LinkedIn</a>
+        <a href="https://scholar.google.com/citations?user=AqcNAskAAAAJ&hl=en" target="_blank"
+          rel="noopener">Scholar</a>
+      </div>
+    </div>
+  </footer>
+
   <noscript>
-    <style>#bg{display:none}.overlay-gradient{display:none}</style>
+    <style>
+      #bg {
+        display: none
+      }
+
+      .overlay-gradient {
+        display: none
+      }
+    </style>
     <p style="color:#eee;padding:1rem;background:#111">JavaScript is required to render the visualization.</p>
   </noscript>
+
+  <div class="scroll-indicator" aria-hidden="true">
+    <span>↓</span>
+  </div>
 
   <script type="module">
     import { createVisualizer } from './assets/js/visualizer.js';
@@ -168,11 +333,13 @@
       animateCLoop: false,
       sliceAmplitude: 0.18,
       sliceSpeed: 0.002,
-      bloom: 0.55,
-      exposure: 1.15,
-      roughness: 0.26,
-      fold: 0.80,
-      iterations: 24,
+      rotationSpeed: 0.022,
+      cLoopSpeed: 0.020,
+      bloom: 0.43,
+      exposure: 1.30,
+      roughness: 0.36,
+      fold: 1.0,
+      iterations: 27,
       slice: 0.10,
       cameraDistance: 4.0
     });
@@ -187,6 +354,19 @@
     const { initControls } = await import('./assets/js/ui-controls.js');
     initLayout({ viz });
     initControls({ viz });
+
+    // Scroll Animations
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('fade-in-up');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.animate-on-scroll').forEach(el => observer.observe(el));
   </script>
 </body>
+
 </html>

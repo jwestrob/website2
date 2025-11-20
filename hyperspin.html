@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Hyperspin — Jacob West‑Roberts</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0A0A0A" />
+    <link rel="icon" href="assets/poster/hero-poster.jpg">
+    <link rel="stylesheet" href="assets/css/site.css" />
+    <style>
+        /* Visualization Styles */
+        html,
+        body {
+            margin: 0;
+            height: 100%;
+            background: #000;
+            overflow: hidden
+        }
+
+        canvas {
+            width: 100%;
+            height: calc(100% - var(--header-h));
+            display: block;
+            position: absolute;
+            top: var(--header-h);
+            left: 0;
+            z-index: 0;
+        }
+
+        #hud {
+            position: fixed;
+            top: calc(var(--header-h) + 20px);
+            left: 10px;
+            color: #ffe;
+            text-shadow: 0 0 5px #000;
+            font-family: system-ui, monospace;
+            z-index: 10;
+            font-size: 12px;
+            line-height: 1.3;
+            pointer-events: none;
+        }
+
+        #hud .row {
+            margin-bottom: 6px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2px 4px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        #controls {
+            position: fixed;
+            top: calc(var(--header-h) + 80px);
+            left: 10px;
+            z-index: 11;
+        }
+
+        #btn {
+            cursor: pointer;
+            border: 1px solid #888;
+            border-radius: 6px;
+            padding: 6px 10px;
+            display: inline-block;
+            background: rgba(30, 30, 30, .8);
+            color: #fff;
+            font-family: system-ui, sans-serif;
+            font-size: 12px;
+            pointer-events: auto;
+            user-select: none;
+        }
+
+        #btn:hover {
+            background: #444
+        }
+
+        #btn.recording {
+            border-color: #e33;
+            background: #311;
+            box-shadow: 0 0 8px rgba(255, 60, 60, .5) inset
+        }
+
+        #link {
+            display: none;
+            margin-left: 8px;
+            color: #aaf;
+            pointer-events: auto;
+        }
+
+        /* Ensure header sits on top */
+        .site-header {
+            z-index: 100;
+            background: rgba(10, 10, 10, 0.8);
+            backdrop-filter: blur(12px);
+        }
+
+        /* Fix lil-gui position */
+        .lil-gui.root {
+            top: calc(var(--header-h) + 10px) !important;
+        }
+    </style>
+
+    <script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.164.0/build/three.module.js",
+    "three/addons/MarchingCubes": "https://cdn.jsdelivr.net/npm/three@0.164.0/examples/jsm/objects/MarchingCubes.js",
+    "lil-gui": "https://cdn.jsdelivr.net/npm/lil-gui@0.18.2/dist/lil-gui.esm.min.js"
+  }
+}
+</script>
+</head>
+
+<body>
+
+    <header id="site-header" class="site-header" role="banner">
+        <div class="header-inner">
+            <div class="brand"><a href="index.html" style="color: #fff;">Jacob West‑Roberts</a></div>
+            <nav class="nav" aria-label="Primary">
+                <a href="research.html">Research</a>
+                <a href="art.html" style="color: var(--gold);">Art</a>
+                <a href="index.html#cv">CV</a>
+
+
+            </nav>
+        </div>
+    </header>
+
+    <div id="hud">
+        <div class="row"><b>Hyperspin Turbo</b> • Cached CG • Full Controls</div><br>
+        <div class="row" id="perf">FPS: --</div>
+    </div>
+    <div id="controls">
+        <span id="btn">Start Recording</span>
+        <a id="link" download="hyperspin_turbo.webm">Download</a>
+    </div>
+
+    <canvas id="c"></canvas>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { MarchingCubes } from 'three/addons/MarchingCubes';
+        import GUI from 'lil-gui';
+
+        /* ======================= Parameters ======================= */
+        const P = {
+            // Representation
+            j1: 3, m1: 1, n1: 0,
+            j2: 4, m2: -2, n2: 1,
+            j3: 5, m3: 1, n3: -2,
+            amp: 0.25,
+
+            // Coupling
+            useCG: true,
+            J: 7, M: 0,
+            cgScale: 1.0,
+            cgColor: true,
+            cgContrast: 1.0,
+
+            // Stereo
+            lambda: 1.0,
+            scale: 4.0,
+
+            // Sampling
+            N: 1500,
+            fibers: 32,
+            segs: 64,
+            loopBeta: 1.05,
+
+            // Coloring
+            phaseColor: true, hopfColor: false,
+            milnorColor: true, lensColor: false,
+
+            // Isoclinic
+            useIsoclinic: true,
+            Laxis: { x: 0.0, y: 0.0, z: 1.0 },
+            Raxis: { x: 0.3, y: 1.0, z: 0.0 },
+            Lom: 0.8, Rom: 0.47,
+
+            // Knot
+            knotMode: true, p: 3, q: 5,
+
+            // Volume
+            volumeEnabled: false,
+            mcRes: 12, mcScale: 9, isoLevel: 0.999, useAutoIso: false, targetFill: 0.12,
+
+            // Rendering
+            lineWidth: 2, size: 0.015, fog: 0.04,
+            renderScale: 1.0,
+            maxPixelRatio: 2.0,
+            recScale: 1.5, hideHUDWhileRec: true,
+            fps: 30, videoKbps: 12000, freezeVolumeWhileRec: true,
+
+            // Field Modes
+            fieldMode: 'coupled',
+            hybridMix: 0.5,
+            milnorP: 3, milnorQ: 5, milnorPow: 1.0,
+            lensEnabled: false, lensP: 5, lensQ: 1, lensCombine: 'mean',
+            shL: 4, shM: 3, shScale: 1.0,
+            pwJmax: 2, pwSigma: 0.75, pwSeed: 7, pwOmega: 0.9, pwScale: 1.0
+        };
+
+        /* ======================= Renderer / Scene ======================= */
+        const canvas = document.getElementById('c');
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, preserveDrawingBuffer: true });
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+        function applyRendererSize() {
+            const px = Math.min(window.devicePixelRatio * P.renderScale, P.maxPixelRatio);
+            renderer.setPixelRatio(px);
+            renderer.setSize(innerWidth, innerHeight, false);
+        }
+        applyRendererSize();
+
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x000000, P.fog);
+
+        const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 1000);
+        camera.position.set(0, 0, 18);
+
+        addEventListener('resize', () => {
+            camera.aspect = innerWidth / innerHeight;
+            camera.updateProjectionMatrix();
+            applyRendererSize();
+        });
+
+        const ambLight = new THREE.AmbientLight(0xffffff, 0.35);
+        scene.add(ambLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+        dirLight.position.set(3, 5, 4);
+        scene.add(dirLight);
+
+        /* ======================= OPTIMIZED MATH KERNEL ======================= */
+        // 1. Pre-computed Log-Factorials (Global Cache)
+        const MAX_FAC = 150;
+        const LNF = new Float32Array(MAX_FAC + 1);
+        const FAC = new Float64Array(MAX_FAC + 1);
+
+        (function initMathCache() {
+            LNF[0] = 0; FAC[0] = 1;
+            for (let i = 1; i <= MAX_FAC; i++) {
+                LNF[i] = LNF[i - 1] + Math.log(i);
+                FAC[i] = FAC[i - 1] * i;
+            }
+        })();
+
+        const lnFac = n => (n >= 0 && n <= MAX_FAC) ? LNF[n] : 0;
+
+        /* ======================= Wigner / Clebsch ======================= */
+        function wigner_d(j, m, n, beta) {
+            const cb = Math.cos(beta * 0.5);
+            const sb = Math.sin(beta * 0.5);
+            const kmin = Math.max(0, n - m);
+            const kmax = Math.min(j + n, j - m);
+            const lnPref = 0.5 * (LNF[j + m] + LNF[j - m] + LNF[j + n] + LNF[j - n]);
+
+            let sum = 0.0;
+            for (let k = kmin; k <= kmax; ++k) {
+                const sign = ((k + n - m) & 1) ? -1.0 : 1.0;
+                const lnDen = LNF[j + n - k] + LNF[k] + LNF[m - n + k] + LNF[j - m - k];
+                const pC = 2 * j + n - m - 2 * k;
+                const pS = m - n + 2 * k;
+                sum += sign * Math.pow(cb, pC) * Math.pow(sb, pS) * Math.exp(lnPref - lnDen);
+            }
+            return sum;
+        }
+
+        function wigner3j(j1, j2, J, m1, m2, m3) {
+            if (m1 + m2 + m3 !== 0) return 0;
+            if (J > j1 + j2 || J < Math.abs(j1 - j2)) return 0;
+            if (Math.abs(m1) > j1 || Math.abs(m2) > j2 || Math.abs(m3) > J) return 0;
+
+            const lnDelta = 0.5 * (LNF[j1 + j2 - J] + LNF[j1 - j2 + J] + LNF[-j1 + j2 + J] - LNF[j1 + j2 + J + 1]);
+            const lnPref = 0.5 * (LNF[j1 + m1] + LNF[j1 - m1] + LNF[j2 + m2] + LNF[j2 - m2] + LNF[J + m3] + LNF[J - m3]) + lnDelta;
+
+            const zmin = Math.max(0, j2 - J - m1, j1 - J + m2);
+            const zmax = Math.min(j1 + j2 - J, j1 - m1, j2 + m2);
+
+            let sum = 0.0;
+            for (let z = zmin; z <= zmax; z++) {
+                const lnDen = LNF[z] + LNF[j1 + j2 - J - z] + LNF[j1 - m1 - z] + LNF[j2 + m2 - z] + LNF[J - j2 + m1 + z] + LNF[J - j1 - m2 + z];
+                const term = Math.exp(lnPref - lnDen);
+                sum += ((z & 1) ? -1.0 : 1.0) * term;
+            }
+            const phase = ((j1 - j2 - m3) & 1) ? -1.0 : 1.0;
+            return phase * sum;
+        }
+
+        function clebschGordan(j1, m1, j2, m2, J, M) {
+            const phase = (((j1 - j2 + M) & 1) ? -1.0 : 1.0);
+            const val3j = wigner3j(j1, j2, J, m1, m2, -M);
+            return phase * Math.sqrt(2 * J + 1) * val3j;
+        }
+
+        /* ======================= THE TURBO CACHE ======================= */
+        let cgCache = [];
+
+        function updateCGCache() {
+            cgCache = [];
+            for (let m1 = -P.j1; m1 <= P.j1; m1++) {
+                const m2 = P.M - m1;
+                if (m2 < -P.j2 || m2 > P.j2) continue;
+                const C = clebschGordan(P.j1, m1, P.j2, m2, P.J, P.M);
+                if (Math.abs(C) > 1e-5) {
+                    cgCache.push({ m1, m2, C });
+                }
+            }
+        }
+
+        /* ======================= Core Math Helpers ======================= */
+        const _euler = new Float32Array(3);
+        function eulerFromSpinor(a_re, a_im, b_re, b_im, target) {
+            const ra = Math.hypot(a_re, a_im);
+            const rb = Math.hypot(b_re, b_im);
+            const beta = 2.0 * Math.atan2(rb, ra);
+            const phia = Math.atan2(a_im, a_re);
+            const phib = Math.atan2(b_im, b_re);
+            target[0] = -(phia + phib); // alpha
+            target[1] = beta;           // beta
+            target[2] = -(phia - phib); // gamma
+        }
+
+        const _L = { c: [0, 0], d: [0, 0] }, _R = { c: [0, 0], d: [0, 0] };
+        function su2FromAxisAngle(x, y, z, theta, out) {
+            const s = Math.sin(theta * 0.5), c = Math.cos(theta * 0.5);
+            out.c[0] = c; out.c[1] = -z * s;
+            out.d[0] = y * s; out.d[1] = -x * s;
+        }
+
+        function rotateSpinor(ar, ai, br, bi, t) {
+            if (!P.useIsoclinic) return [ar, ai, br, bi];
+            su2FromAxisAngle(P.Laxis.x, P.Laxis.y, P.Laxis.z, P.Lom * t, _L);
+            su2FromAxisAngle(P.Raxis.x, P.Raxis.y, P.Raxis.z, P.Rom * t, _R);
+
+            const Lcr = _L.c[0], Lci = _L.c[1], Ldr = _L.d[0], Ldi = _L.d[1];
+            const car = Lcr * ar - Lci * ai, cai = Lcr * ai + Lci * ar;
+            const dbr = Ldr * br + Ldi * bi, dbi = Ldr * bi - Ldi * br;
+            const a1r = car - dbr, a1i = cai - dbi;
+            const dar = Ldr * ar - Ldi * ai, dai = Ldr * ai + Ldi * ar;
+            const cbr = Lcr * br + Lci * bi, cbi = Lcr * bi - Lci * br;
+            const b1r = dar + cbr, b1i = dai + cbi;
+
+            const Rcr = _R.c[0], Rci = _R.c[1], Rdr = _R.d[0], Rdi = _R.d[1];
+            const ar_ = a1r * Rcr - a1i * Rci, ai_ = a1r * Rci + a1i * Rcr;
+            const bs_r = b1r * Rdr + b1i * Rdi, bs_i = b1r * Rdi - b1i * Rdr;
+            const br_ = b1r * Rcr - b1i * Rci, bi_ = b1r * Rci + b1i * Rcr;
+            const as_r = a1r * Rdr + a1i * Rdi, as_i = a1r * Rdi - a1i * Rdr;
+
+            return [ar_ - bs_r, ai_ - bs_i, br_ + as_r, bi_ + as_i];
+        }
+
+        function stereoProject(x, y, z, w, lambda, scale) {
+            const denom = 1.0 - lambda * w;
+            if (Math.abs(denom) < 1e-6) return [0, 0, 0];
+            const s = scale / denom;
+            return [s * x, s * y, s * z];
+        }
+
+        /* ======================= Field Logic ======================= */
+        const _tmpRet = { mag: 0, re: 0, im: 0, phase: 0 };
+        const _tmpW = { mag: 0, re: 0, im: 0, phase: 0 };
+        const _tmpM = { mag: 0, re: 0, im: 0, phase: 0 };
+
+        function fieldWigner(ar, ai, br, bi, t, ret) {
+            eulerFromSpinor(ar, ai, br, bi, _euler);
+            const alpha = _euler[0], beta = _euler[1], gamma = _euler[2];
+
+            const d1 = wigner_d(P.j1, P.m1, P.n1, beta);
+            const ph1 = -(P.m1 * alpha + P.n1 * gamma);
+            const r1 = d1 * Math.cos(ph1), i1 = d1 * Math.sin(ph1);
+
+            const d2 = wigner_d(P.j2, P.m2, P.n2, beta);
+            const ph2 = -(P.m2 * alpha + P.n2 * gamma);
+            const r2 = d2 * Math.cos(ph2), i2 = d2 * Math.sin(ph2);
+
+            const d3 = wigner_d(P.j3, P.m3, P.n3, beta);
+            const ph3 = -(P.m3 * alpha + P.n3 * gamma);
+            const r3 = d3 * Math.cos(ph3), i3 = d3 * Math.sin(ph3);
+
+            const u = 0.5 + 0.5 * Math.sin(0.73 * t);
+            const v = 0.5 + 0.5 * Math.sin(0.41 * t + 1.9);
+            const s1 = u, s2 = (1 - u) * v, s3 = (1 - u) * (1 - v);
+            const norm = s1 + s2 + s3;
+
+            ret.re = (s1 * r1 + s2 * r2 + s3 * r3) / norm;
+            ret.im = (s1 * i1 + s2 * i2 + s3 * i3) / norm;
+            ret.mag = Math.hypot(ret.re, ret.im);
+            ret.phase = Math.atan2(ret.im, ret.re);
+            return ret;
+        }
+
+        function fieldCoupled(ar, ai, br, bi, t, ret) {
+            eulerFromSpinor(ar, ai, br, bi, _euler);
+            const alpha = _euler[0], beta = _euler[1], gamma = _euler[2];
+            let R = 0.0, I = 0.0;
+            const len = cgCache.length;
+            for (let i = 0; i < len; i++) {
+                const item = cgCache[i];
+                const m1 = item.m1;
+                const m2 = item.m2;
+                const C = item.C;
+                const d1_val = wigner_d(P.j1, m1, P.n1, beta);
+                const ang1 = -(m1 * alpha + P.n1 * gamma);
+                const A_r = d1_val * Math.cos(ang1), A_i = d1_val * Math.sin(ang1);
+                const d2_val = wigner_d(P.j2, m2, P.n2, beta);
+                const ang2 = -(m2 * alpha + P.n2 * gamma);
+                const B_r = d2_val * Math.cos(ang2), B_i = d2_val * Math.sin(ang2);
+                const P_r = A_r * B_r - A_i * B_i, P_i = A_r * B_i + A_i * B_r;
+                R += C * P_r; I += C * P_i;
+            }
+            ret.re = R; ret.im = I;
+            ret.mag = P.cgScale * Math.hypot(R, I);
+            ret.phase = Math.atan2(I, R);
+            return ret;
+        }
+
+        function fieldMilnor(ar, ai, br, bi, t, ret) {
+            const p = P.milnorP, q = P.milnorQ;
+            const powC = (r, i, n) => {
+                const mag = Math.pow(r * r + i * i, n / 2.0);
+                const ang = Math.atan2(i, r) * n;
+                return [mag * Math.cos(ang), mag * Math.sin(ang)];
+            }
+            const [r1, i1] = powC(ar, ai, p);
+            const [r2, i2] = powC(br, bi, q);
+            const fr = r1 + r2, fi = i1 + i2;
+            ret.re = fr; ret.im = fi;
+            ret.mag = Math.pow(Math.hypot(fr, fi), P.milnorPow);
+            ret.phase = Math.atan2(fi, fr);
+            return ret;
+        }
+
+        function fieldHopfSH(ar, ai, br, bi, t, ret) {
+            const nx = 2 * (ar * br + ai * bi), ny = 2 * (ai * br - ar * bi), nz = ar * ar + ai * ai - br * br - bi * bi;
+            const theta = Math.acos(Math.max(-1, Math.min(1, nz)));
+            const phi = Math.atan2(ny, nx);
+            const l = P.shL, m = P.shM;
+            const x = Math.cos(theta);
+            let pmm = 1.0;
+            if (m > 0) {
+                const somx2 = Math.sqrt((1 - x) * (1 + x));
+                let fact = 1.0;
+                for (let i = 1; i <= m; i++) { pmm *= -fact * somx2; fact += 2.0; }
+            }
+            let result = pmm;
+            if (l > m) {
+                let pmmp1 = x * (2 * m + 1) * pmm;
+                if (l === m + 1) result = pmmp1;
+                else {
+                    let pll = 0;
+                    for (let ll = m + 2; ll <= l; ll++) {
+                        pll = ((2 * ll - 1) * x * pmmp1 - (ll + m - 1) * pmm) / (ll - m);
+                        pmm = pmmp1; pmmp1 = pll;
+                    }
+                    result = pll;
+                }
+            }
+            const absm = Math.abs(m);
+            const lnNorm = 0.5 * (Math.log((2 * l + 1) / (4 * Math.PI)) + LNF[l - absm] - LNF[l + absm]);
+            const amp = Math.exp(lnNorm) * result;
+            const ang = m * phi;
+            ret.re = amp * Math.cos(ang); ret.im = amp * Math.sin(ang);
+            ret.mag = P.shScale * Math.hypot(ret.re, ret.im);
+            ret.phase = Math.atan2(ret.im, ret.re);
+            return ret;
+        }
+
+        const PW = { init: false, coeffs: [], phases: [], omegas: [] };
+        function initPW() {
+            PW.init = true; PW.coeffs = []; PW.phases = []; PW.omegas = [];
+            let seed = P.pwSeed;
+            const rng = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+            for (let j = 0; j <= P.pwJmax; j++) {
+                const dim = 2 * j + 1;
+                const decay = Math.exp(-P.pwSigma * j * (j + 1));
+                const cRow = [], pRow = [], oRow = [];
+                for (let i = 0; i < dim * dim; i++) {
+                    cRow.push([(rng() * 2 - 1) * decay, (rng() * 2 - 1) * decay]);
+                    pRow.push(rng() * 2 * Math.PI);
+                    oRow.push(P.pwOmega * Math.sqrt(j * (j + 1) + 0.25));
+                }
+                PW.coeffs.push(cRow); PW.phases.push(pRow); PW.omegas.push(oRow);
+            }
+        }
+
+        function fieldPeterWeyl(ar, ai, br, bi, t, ret) {
+            if (!PW.init) initPW();
+            eulerFromSpinor(ar, ai, br, bi, _euler);
+            const a = _euler[0], b = _euler[1], g = _euler[2];
+            let R = 0, I = 0;
+            for (let j = 0; j <= P.pwJmax; j++) {
+                const dim = 2 * j + 1;
+                const c = PW.coeffs[j], p = PW.phases[j], o = PW.omegas[j];
+                let idx = 0;
+                for (let m = -j; m <= j; m++) {
+                    for (let n = -j; n <= j; n++) {
+                        const d = wigner_d(j, m, n, b);
+                        const angD = -(m * a + n * g);
+                        const Dr = d * Math.cos(angD), Di = d * Math.sin(angD);
+                        const phase = p[idx] + o[idx] * t;
+                        const cr = c[idx][0], ci = c[idx][1];
+                        const Ar = cr * Math.cos(phase) - ci * Math.sin(phase);
+                        const Ai = cr * Math.sin(phase) + ci * Math.cos(phase);
+                        R += Ar * Dr - Ai * Di; I += Ar * Di + Ai * Dr;
+                        idx++;
+                    }
+                }
+            }
+            ret.re = R; ret.im = I;
+            ret.mag = P.pwScale * Math.hypot(R, I);
+            ret.phase = Math.atan2(I, R);
+            return ret;
+        }
+
+        function masterField(ar, ai, br, bi, t) {
+            if (P.lensEnabled) {
+                let sumR = 0, sumI = 0, sumMag = 0;
+                const p = Math.floor(P.lensP), q = Math.floor(P.lensQ);
+                for (let k = 0; k < p; k++) {
+                    const phi = 2 * Math.PI * k / p;
+                    const cp = Math.cos(phi), sp = Math.sin(phi);
+                    const cq = Math.cos(q * phi), sq = Math.sin(q * phi);
+                    const akr = ar * cp - ai * sp, aki = ar * sp + ai * cp;
+                    const bkr = br * cq - bi * sq, bki = br * sq + bi * cq;
+                    let res;
+                    if (P.fieldMode === 'coupled') res = P.useCG ? fieldCoupled(akr, aki, bkr, bki, t, _tmpRet) : fieldWigner(akr, aki, bkr, bki, t, _tmpRet);
+                    else if (P.fieldMode === 'milnor') res = fieldMilnor(akr, aki, bkr, bki, t, _tmpRet);
+                    else res = fieldWigner(akr, aki, bkr, bki, t, _tmpRet);
+                    sumR += res.re; sumI += res.im; sumMag += res.mag;
+                }
+                if (P.lensCombine === 'mean') {
+                    const mag = sumMag / p;
+                    const ph = Math.atan2(sumI, sumR);
+                    return { mag, re: Math.cos(ph) * mag, im: Math.sin(ph) * mag, phase: ph };
+                }
+                const mag = sumMag / p;
+                return { mag, re: 0, im: 0, phase: 0 };
+            }
+
+            switch (P.fieldMode) {
+                case 'milnor': return fieldMilnor(ar, ai, br, bi, t, _tmpRet);
+                case 'coupled': return P.useCG ? fieldCoupled(ar, ai, br, bi, t, _tmpRet) : fieldWigner(ar, ai, br, bi, t, _tmpRet);
+                case 'hopfSH': return fieldHopfSH(ar, ai, br, bi, t, _tmpRet);
+                case 'pw': return fieldPeterWeyl(ar, ai, br, bi, t, _tmpRet);
+                case 'hybrid':
+                    fieldWigner(ar, ai, br, bi, t, _tmpW);
+                    fieldMilnor(ar, ai, br, bi, t, _tmpM);
+                    const mix = P.hybridMix;
+                    const mr = (1 - mix) * Math.cos(_tmpW.phase) + mix * Math.cos(_tmpM.phase);
+                    const mi = (1 - mix) * Math.sin(_tmpW.phase) + mix * Math.sin(_tmpM.phase);
+                    const phase = Math.atan2(mi, mr);
+                    const mag = (1 - mix) * _tmpW.mag + mix * _tmpM.mag;
+                    return { mag, re: Math.cos(phase) * mag, im: Math.sin(phase) * mag, phase };
+                default: return fieldWigner(ar, ai, br, bi, t, _tmpRet);
+            }
+        }
+
+        /* ======================= Geometry Setup ======================= */
+        const gPts = new THREE.BufferGeometry();
+        gPts.setAttribute('position', new THREE.BufferAttribute(new Float32Array(P.N * 3), 3));
+        gPts.setAttribute('color', new THREE.BufferAttribute(new Float32Array(P.N * 3), 3));
+        const cloud = new THREE.Points(gPts, new THREE.PointsMaterial({ vertexColors: true, size: P.size, sizeAttenuation: true, transparent: true, opacity: 0.9, depthWrite: false }));
+        scene.add(cloud);
+
+        const gFib = new THREE.BufferGeometry();
+        const maxVerts = P.fibers * P.segs * 2;
+        gFib.setAttribute('position', new THREE.BufferAttribute(new Float32Array(maxVerts * 3), 3));
+        gFib.setAttribute('color', new THREE.BufferAttribute(new Float32Array(maxVerts * 3), 3));
+        const fibers = new THREE.LineSegments(gFib, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.8, linewidth: P.lineWidth }));
+        scene.add(fibers);
+
+        const alphas = new Float32Array(P.N), betas = new Float32Array(P.N), gammas = new Float32Array(P.N);
+        for (let i = 0; i < P.N; i++) {
+            alphas[i] = Math.random() * 2 * Math.PI;
+            gammas[i] = Math.random() * 2 * Math.PI;
+            betas[i] = Math.acos(2 * Math.random() - 1);
+        }
+        const fibSeeds = new Float32Array(P.fibers);
+        for (let i = 0; i < P.fibers; i++) fibSeeds[i] = Math.random();
+
+        /* ======================= Volume (Optional) ======================= */
+        let mc = null;
+        function updateVolume(t) {
+            if (!mc) {
+                mc = new MarchingCubes(P.mcRes, new THREE.MeshStandardMaterial({ color: 0xaadfff, roughness: 0.8, transparent: true, opacity: 0.3, side: THREE.DoubleSide }), false, false);
+                mc.scale.setScalar(P.mcScale);
+                scene.add(mc);
+            }
+            if (mc.resolution !== P.mcRes) { mc.init(P.mcRes); }
+            const size = P.mcRes, size2 = size * size, size3 = size * size * size;
+            const field = mc.field;
+            let minV = 1e9, maxV = -1e9;
+
+            for (let i = 0; i < size3; i++) {
+                const z = Math.floor(i / size2);
+                const y = Math.floor((i % size2) / size);
+                const x = i % size;
+                const u = (x / size - 0.5) * 2 * P.mcScale;
+                const v = (y / size - 0.5) * 2 * P.mcScale;
+                const w = (z / size - 0.5) * 2 * P.mcScale;
+                const R2 = u * u + v * v + w * w;
+                const factor = 1.0 / (1.0 + R2 / (P.scale * P.scale));
+                const sx = u * factor, sy = v * factor, sz = w * factor;
+                const rad = Math.hypot(sx, sy, sz);
+                const theta = Math.acos(sz / (rad + 1e-6));
+                const phi = Math.atan2(sy, sx);
+                const [ar, ai, br, bi] = rotateSpinor(Math.cos(theta / 2) * Math.cos(phi / 2), Math.cos(theta / 2) * Math.sin(phi / 2), Math.sin(theta / 2) * Math.cos(-phi / 2), Math.sin(theta / 2) * Math.sin(-phi / 2), t);
+                const val = masterField(ar, ai, br, bi, t).mag;
+                field[i] = val;
+                if (val < minV) minV = val; if (val > maxV) maxV = val;
+            }
+            const range = maxV - minV || 1;
+            for (let i = 0; i < size3; i++) field[i] = (field[i] - minV) / range;
+            mc.isolation = P.isoLevel;
+            mc.update();
+        }
+
+        /* ======================= Loop ======================= */
+        let t0 = performance.now() / 1000;
+        const perfEl = document.getElementById('perf');
+        let frameCount = 0, lastTime = performance.now();
+
+        function hsv2rgb(h, s, v) {
+            let r, g, b, i, f, p, q, t;
+            i = Math.floor(h * 6);
+            f = h * 6 - i;
+            p = v * (1 - s);
+            q = v * (1 - f * s);
+            t = v * (1 - (1 - f) * s);
+            switch (i % 6) {
+                case 0: r = v; g = t; b = p; break;
+                case 1: r = q; g = v; b = p; break;
+                case 2: r = p; g = v; b = t; break;
+                case 3: r = p; g = q; b = v; break;
+                case 4: r = t; g = p; b = v; break;
+                case 5: r = v; g = p; b = q; break;
+            }
+            return [r, g, b];
+        }
+
+        function colorCGDelta(baseMag, coupledMag) {
+            const eps = 1e-6;
+            const r = (coupledMag) / (baseMag + eps);
+            const h = Math.max(0, Math.min(1, 0.5 + 0.5 * Math.tanh(P.cgContrast * (r - 1))));
+            return hsv2rgb(h, 0.9, 1.0);
+        }
+
+        function hopfBase(x, y, z, w) {
+            const nx = 2 * (x * z + y * w), ny = 2 * (y * z - x * w), nz = x * x + y * y - z * z - w * w;
+            const L = Math.hypot(nx, ny, nz) || 1.0;
+            return [nx / L, ny / L, nz / L];
+        }
+        function vecToColor(nx, ny, nz) {
+            const hue = (Math.atan2(ny, nx) / (2 * Math.PI) + 1.0) % 1.0;
+            const [r, g, b] = hsv2rgb(hue, 0.5 * (nz + 1.0) * 0.6 + 0.2, 0.9);
+            return [r, g, b];
+        }
+
+        function update() {
+            const t = performance.now() / 1000 - t0;
+
+            frameCount++;
+            if (frameCount > 30) {
+                const now = performance.now();
+                const fps = Math.round(1000 * frameCount / (now - lastTime));
+                perfEl.textContent = `FPS: ${fps}`;
+                frameCount = 0; lastTime = now;
+            }
+
+            // CLOUD
+            const pos = gPts.attributes.position.array;
+            const col = gPts.attributes.color.array;
+            let R = 0, G = 0, B = 0;
+
+            for (let i = 0; i < P.N; i++) {
+                const a = alphas[i], b = betas[i], g = gammas[i];
+                const sa = Math.sin(a), ca = Math.cos(a);
+                const sb = Math.sin(b / 2), cb = Math.cos(b / 2);
+                const sg = Math.sin(g), cg = Math.cos(g);
+                const ang1 = -0.5 * (a + g), ang2 = -0.5 * (a - g);
+                const s1r = cb * Math.cos(ang1), s1i = cb * Math.sin(ang1);
+                const s2r = sb * Math.cos(ang2), s2i = sb * Math.sin(ang2);
+
+                const [x4, y4, z4, w4] = rotateSpinor(s1r, s1i, s2r, s2i, t);
+                let F = masterField(x4, y4, z4, w4, t);
+                const H = P.amp * (F.re > 0 ? 1 : -1) * F.mag;
+                const [sx, sy, sz] = stereoProject(x4 * (1 + H), y4 * (1 + H), z4 * (1 + H), w4, P.lambda, P.scale);
+                pos[3 * i] = sx; pos[3 * i + 1] = sy; pos[3 * i + 2] = sz;
+
+                let baseMagForCG = null;
+                if (P.fieldMode === 'coupled' && P.cgColor) {
+                    const W = P.useCG ? fieldWigner(x4, y4, z4, w4, t, _tmpW) : { mag: 1 };
+                    baseMagForCG = W.mag;
+                }
+
+                if (P.fieldMode === 'coupled' && P.cgColor && baseMagForCG !== null) {
+                    [R, G, B] = colorCGDelta(baseMagForCG, F.mag);
+                } else if (P.hopfColor) {
+                    const [nx, ny, nz] = hopfBase(x4, y4, z4, w4);[R, G, B] = vecToColor(nx, ny, nz);
+                } else if (P.fieldMode === 'milnor' && P.milnorColor) {
+                    const hue = (F.phase / (2 * Math.PI) + 1.0) % 1.0;[R, G, B] = hsv2rgb(hue, 0.85, 1.0);
+                } else if (P.phaseColor) {
+                    const hue = (F.phase / (2 * Math.PI) + 1.0) % 1.0;[R, G, B] = hsv2rgb(hue, 0.85, 1.0);
+                } else {
+                    const v = Math.min(1.0, Math.max(0.0, 0.5 + 0.5 * H));
+                    R = v * 0.9; G = v * 0.95; B = 1.0;
+                }
+                col[3 * i] = R; col[3 * i + 1] = G; col[3 * i + 2] = B;
+            }
+            gPts.attributes.position.needsUpdate = true;
+            gPts.attributes.color.needsUpdate = true;
+
+            // FIBERS
+            if (true) {
+                const fpos = gFib.attributes.position.array;
+                const fcol = gFib.attributes.color.array;
+                let ptr = 0;
+
+                for (let f = 0; f < P.fibers; f++) {
+                    const u = f / P.fibers;
+                    const a0 = 2 * Math.PI * u, g0 = 2 * Math.PI * ((f * 13) % P.fibers) / P.fibers;
+                    const b0 = P.knotMode ? P.loopBeta : Math.acos(2 * fibSeeds[f] - 1);
+
+                    let prevX, prevY, prevZ, prevR, prevG, prevB;
+
+                    for (let s = 0; s <= P.segs; s++) {
+                        const v = s / P.segs;
+                        const tau = 2 * Math.PI * v;
+                        const alpha = P.knotMode ? (P.q * tau + a0) : a0;
+                        const gamma = P.knotMode ? (P.p * tau + g0) : (g0 + tau);
+                        const beta = b0;
+
+                        const ang1 = -0.5 * (alpha + gamma), ang2 = -0.5 * (alpha - gamma);
+                        const cb = Math.cos(beta / 2), sb = Math.sin(beta / 2);
+                        const s1r = cb * Math.cos(ang1), s1i = cb * Math.sin(ang1);
+                        const s2r = sb * Math.cos(ang2), s2i = sb * Math.sin(ang2);
+
+                        const [x4, y4, z4, w4] = rotateSpinor(s1r, s1i, s2r, s2i, t);
+                        const F = masterField(x4, y4, z4, w4, t);
+                        const H = P.amp * (F.re > 0 ? 1 : -1) * F.mag;
+                        const [X, Y, Z] = stereoProject(x4 * (1 + H), y4 * (1 + H), z4 * (1 + H), w4, P.lambda, P.scale);
+
+                        let cR, cG, cB;
+                        let baseMagForCG = null;
+                        if (P.fieldMode === 'coupled' && P.cgColor) {
+                            const W = fieldWigner(x4, y4, z4, w4, t, _tmpW); baseMagForCG = W.mag;
+                        }
+
+                        if (P.fieldMode === 'coupled' && P.cgColor && baseMagForCG !== null) {
+                            [cR, cG, cB] = colorCGDelta(baseMagForCG, F.mag);
+                        } else if (P.hopfColor) {
+                            const [nx, ny, nz] = hopfBase(x4, y4, z4, w4);[cR, cG, cB] = vecToColor(nx, ny, nz);
+                        } else if (P.fieldMode === 'milnor' && P.milnorColor) {
+                            const hue = (F.phase / (2 * Math.PI) + 1.0) % 1.0;[cR, cG, cB] = hsv2rgb(hue, 0.85, 1.0);
+                        } else if (P.phaseColor) {
+                            const hue = (F.phase / (2 * Math.PI) + 1.0) % 1.0;[cR, cG, cB] = hsv2rgb(hue, 0.85, 1.0);
+                        } else {
+                            const v = Math.min(1.0, Math.max(0.0, 0.5 + 0.5 * H));
+                            cR = v * 0.9; cG = v * 0.95; cB = 1.0;
+                        }
+
+                        if (s > 0) {
+                            fpos[ptr * 3] = prevX; fpos[ptr * 3 + 1] = prevY; fpos[ptr * 3 + 2] = prevZ;
+                            fcol[ptr * 3] = prevR; fcol[ptr * 3 + 1] = prevG; fcol[ptr * 3 + 2] = prevB;
+                            ptr++;
+                            fpos[ptr * 3] = X; fpos[ptr * 3 + 1] = Y; fpos[ptr * 3 + 2] = Z;
+                            fcol[ptr * 3] = cR; fcol[ptr * 3 + 1] = cG; fcol[ptr * 3 + 2] = cB;
+                            ptr++;
+                        }
+                        prevX = X; prevY = Y; prevZ = Z; prevR = cR; prevG = cG; prevB = cB;
+                    }
+                }
+                gFib.setDrawRange(0, ptr);
+                gFib.attributes.position.needsUpdate = true;
+                gFib.attributes.color.needsUpdate = true;
+            }
+
+            if (P.volumeEnabled) updateVolume(t);
+
+            renderer.render(scene, camera);
+            requestAnimationFrame(update);
+        }
+
+        /* ======================= Boot ======================= */
+        updateCGCache();
+
+        /* ======================= GUI (RESTORED) ======================= */
+        const gui = new GUI({ title: 'Controls' });
+
+        const onQChange = () => { updateCGCache(); };
+        const onPWChange = () => { PW.init = false; };
+
+        const fRep = gui.addFolder('Representation');
+        fRep.add(P, 'j1', 0, 8, 1).onChange(onQChange);
+        fRep.add(P, 'm1', -8, 8, 1).onChange(onQChange);
+        fRep.add(P, 'n1', -8, 8, 1);
+        fRep.add(P, 'j2', 0, 8, 1).onChange(onQChange);
+        fRep.add(P, 'm2', -8, 8, 1);
+        fRep.add(P, 'n2', -8, 8, 1);
+        fRep.add(P, 'j3', 0, 8, 1);
+        fRep.add(P, 'm3', -8, 8, 1);
+        fRep.add(P, 'n3', -8, 8, 1);
+        fRep.add(P, 'amp', 0, 1);
+
+        const fCoup = gui.addFolder('Coupling (Cached)');
+        fCoup.add(P, 'useCG').name('Enable CG');
+        fCoup.add(P, 'J', 0, 12, 1).onChange(onQChange);
+        fCoup.add(P, 'M', -12, 12, 1).onChange(onQChange);
+        fCoup.add(P, 'cgScale', 0.1, 3.0);
+        fCoup.add(P, 'cgColor');
+        fCoup.add(P, 'cgContrast', 0.1, 3.0);
+
+        const fProj = gui.addFolder('Proj / Color');
+        fProj.add(P, 'lambda', 0.6, 1.4);
+        fProj.add(P, 'scale', 2, 8);
+        fProj.add(P, 'phaseColor');
+        fProj.add(P, 'hopfColor');
+        fProj.add(P, 'milnorColor');
+        fProj.add(P, 'lensColor');
+
+        const fIso = gui.addFolder('Isoclinic Flow');
+        fIso.add(P, 'useIsoclinic');
+        fIso.add(P.Laxis, 'x', -1, 1).name('Lx'); fIso.add(P.Laxis, 'y', -1, 1).name('Ly'); fIso.add(P.Laxis, 'z', -1, 1).name('Lz');
+        fIso.add(P, 'Lom', 0, 2);
+        fIso.add(P.Raxis, 'x', -1, 1).name('Rx'); fIso.add(P.Raxis, 'y', -1, 1).name('Ry'); fIso.add(P.Raxis, 'z', -1, 1).name('Rz');
+        fIso.add(P, 'Rom', 0, 2);
+
+        const fKnot = gui.addFolder('Knot Mode');
+        fKnot.add(P, 'knotMode');
+        fKnot.add(P, 'p', 1, 12, 1);
+        fKnot.add(P, 'q', 1, 12, 1);
+        fKnot.add(P, 'loopBeta', 0.1, 3.1);
+
+        const fField = gui.addFolder('Field Modes');
+        fField.add(P, 'fieldMode', ['wigner', 'milnor', 'coupled', 'hybrid', 'hopfSH', 'pw']);
+        fField.add(P, 'hybridMix', 0, 1);
+        fField.add(P, 'milnorP', 1, 10, 1);
+        fField.add(P, 'milnorQ', 1, 10, 1);
+        fField.add(P, 'milnorPow', 0.1, 3);
+
+        const fLens = gui.addFolder('Lens Space');
+        fLens.add(P, 'lensEnabled');
+        fLens.add(P, 'lensP', 1, 10, 1);
+        fLens.add(P, 'lensQ', 1, 10, 1);
+        fLens.add(P, 'lensCombine', ['mean', 'min', 'max']);
+
+        const fSH = gui.addFolder('Hopf SH');
+        fSH.add(P, 'shL', 0, 10, 1);
+        fSH.add(P, 'shM', -10, 10, 1);
+        fSH.add(P, 'shScale', 0.1, 2);
+
+        const fPW = gui.addFolder('Peter-Weyl');
+        fPW.add(P, 'pwJmax', 0, 4, 1).onChange(onPWChange);
+        fPW.add(P, 'pwSigma', 0, 2).onChange(onPWChange);
+        fPW.add(P, 'pwSeed', 1, 999, 1).onChange(onPWChange);
+        fPW.add(P, 'pwOmega', 0, 3);
+        fPW.add(P, 'pwScale', 0.1, 3);
+
+        const fPerf = gui.addFolder('Performance');
+        fPerf.add(P, 'N', 100, 5000, 100).onChange(v => gPts.setDrawRange(0, v));
+        fPerf.add(P, 'fibers', 0, 128, 1).onChange(() => location.reload());
+        fPerf.add(P, 'volumeEnabled').name('Volume (Slow!)');
+
+        gui.close();
+
+        /* ======================= Recorder ======================= */
+        const btn = document.getElementById('btn');
+        const link = document.getElementById('link');
+        let recorder;
+        btn.onclick = () => {
+            if (btn.classList.contains('recording')) {
+                recorder.stop();
+                btn.textContent = 'Start Recording';
+                btn.classList.remove('recording');
+            } else {
+                const stream = canvas.captureStream(P.fps);
+                recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: P.videoKbps * 1000 });
+                const chunks = [];
+                recorder.ondataavailable = e => chunks.push(e.data);
+                recorder.onstop = () => {
+                    const blob = new Blob(chunks, { type: 'video/webm' });
+                    link.href = URL.createObjectURL(blob);
+                    link.style.display = 'inline';
+                };
+                recorder.start();
+                btn.textContent = 'Stop Recording';
+                btn.classList.add('recording');
+            }
+        };
+
+        // Start
+        requestAnimationFrame(update);
+
+    </script>
+</body>
+
+</html>

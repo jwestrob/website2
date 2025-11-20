@@ -6,31 +6,31 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 
 // --- Sequence mapping helpers (ported verbatim from quaternion_julia.html) ---
-const KD = {I:4.5,V:4.2,L:3.8,F:2.8,C:2.5,M:1.9,A:1.8,G:-0.4,T:-0.7,S:-0.8,W:-0.9,Y:-1.3,P:-1.6,H:-3.2,E:-3.5,Q:-3.5,D:-3.5,N:-3.5,K:-3.9,R:-4.5};
+const KD = { I: 4.5, V: 4.2, L: 3.8, F: 2.8, C: 2.5, M: 1.9, A: 1.8, G: -0.4, T: -0.7, S: -0.8, W: -0.9, Y: -1.3, P: -1.6, H: -3.2, E: -3.5, Q: -3.5, D: -3.5, N: -3.5, K: -3.9, R: -4.5 };
 const clean = s => (s || '').toUpperCase().replace(/[^A-Z]/g, '');
 const isDNA = s => /^[ACGTN]+$/.test(s);
 const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
 const remap01 = (x, a, b) => clamp((x - a) / (b - a), 0, 1);
-function entropyKmer(s, alphabet, k){
+function entropyKmer(s, alphabet, k) {
   const n = s.length;
   if (n < k) return 0;
   const map = new Map();
-  for (let i = 0; i <= n - k; i++){
+  for (let i = 0; i <= n - k; i++) {
     const sub = s.slice(i, i + k);
     let valid = true;
-    for (const ch of sub){ if (!alphabet.has(ch)) { valid = false; break; } }
+    for (const ch of sub) { if (!alphabet.has(ch)) { valid = false; break; } }
     if (!valid) continue;
     map.set(sub, (map.get(sub) || 0) + 1);
   }
   let H = 0, total = 0;
   for (const c of map.values()) total += c;
-  for (const c of map.values()){
+  for (const c of map.values()) {
     const p = c / total;
     H -= p * Math.log2(p);
   }
   return H;
 }
-function gcContent(s){
+function gcContent(s) {
   const g = (s.match(/G/g) || []).length;
   const c = (s.match(/C/g) || []).length;
   const a = (s.match(/A/g) || []).length;
@@ -38,7 +38,7 @@ function gcContent(s){
   const denom = g + c + a + t;
   return denom ? (g + c) / denom : 0;
 }
-function cpgOE(s){
+function cpgOE(s) {
   const L = s.length;
   if (L < 2) return 0;
   const c = (s.match(/C/g) || []).length;
@@ -46,11 +46,11 @@ function cpgOE(s){
   const cg = (s.match(/CG/g) || []).length;
   return (cg * L) / Math.max(1, c * g);
 }
-function proteinStats(s){
+function proteinStats(s) {
   const L = s.length;
   if (!L) return { hyd: 0, arom: 0, charge: 0 };
   let hyd = 0, arom = 0, pos = 0, neg = 0, his = 0;
-  for (const ch of s){
+  for (const ch of s) {
     hyd += (KD[ch] ?? 0);
     if (ch === 'F' || ch === 'Y' || ch === 'W') arom++;
     if (ch === 'K' || ch === 'R') pos++;
@@ -59,7 +59,7 @@ function proteinStats(s){
   }
   return { hyd: hyd / L, arom: arom / L, charge: (pos + 0.1 * his - neg) / L };
 }
-function seqToParams(raw, defaults){
+function seqToParams(raw, defaults) {
   const s = clean(raw);
   if (!s.length) return null;
   const L = s.length;
@@ -69,9 +69,9 @@ function seqToParams(raw, defaults){
   let fold = defaults.fold ?? 0.8;
   let rough = defaults.roughness ?? 0.26;
 
-  if (isDNA(s)){
+  if (isDNA(s)) {
     const gc = gcContent(s);
-    const H3 = entropyKmer(s, new Set(['A','C','G','T','N']), 3);
+    const H3 = entropyKmer(s, new Set(['A', 'C', 'G', 'T', 'N']), 3);
     const H3n = clamp(H3 / 6, 0, 1);
     const oe = clamp(cpgOE(s), 0, 2.0);
     cx = -0.8 + 1.6 * gc;
@@ -97,7 +97,7 @@ function seqToParams(raw, defaults){
   }
 
   const r = Math.hypot(cx, cy, cz, cw);
-  if (r > 0.95){
+  if (r > 0.95) {
     const scale = 0.95 / r;
     cx *= scale;
     cy *= scale;
@@ -115,7 +115,7 @@ function seqToParams(raw, defaults){
 
 const C_LOOP_FREQS = [0.77, 1.13, 0.91, 1.27];
 const C_LOOP_PHASES = [0.0, 1.1, 2.2, 0.7];
-const C_LOOP_RADII  = [0.65, 0.35, 0.28, 0.42];
+const C_LOOP_RADII = [0.65, 0.35, 0.28, 0.42];
 const TAU = Math.PI * 2;
 
 const PLANE_N0 = new THREE.Vector3(1, 0, 0);
@@ -140,8 +140,8 @@ const JS_MAX_STEPS = 160;
 const JS_MAX_DIST = 20;
 const JS_SURF_EPS = 0.00075;
 
-export async function createVisualizer(canvas, opts = {}){
-  if (!(canvas instanceof HTMLCanvasElement)){
+export async function createVisualizer(canvas, opts = {}) {
+  if (!(canvas instanceof HTMLCanvasElement)) {
     throw new Error('createVisualizer requires an HTMLCanvasElement.');
   }
 
@@ -174,10 +174,10 @@ export async function createVisualizer(canvas, opts = {}){
   let manualMotionOverride = false;
   const cleanup = [];
 
-  if (!settings.sequence){
+  if (!settings.sequence) {
     try {
       const res = await fetch('./polyprotein.fna', { cache: 'force-cache' });
-      if (res.ok){
+      if (res.ok) {
         const raw = await res.text();
         const seq = raw
           .split('\n')
@@ -214,7 +214,7 @@ export async function createVisualizer(canvas, opts = {}){
   const screenCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
   const viewCam = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.01, 100);
-  function updateCameraFromSettings(){
+  function updateCameraFromSettings() {
     const az = THREE.MathUtils.degToRad(settings.cameraAzimuth ?? 0);
     const el = THREE.MathUtils.degToRad(settings.cameraElevation ?? 0);
     const radius = settings.cameraDistance;
@@ -250,19 +250,19 @@ export async function createVisualizer(canvas, opts = {}){
     uRoughness: { value: settings.roughness },
     uExposure: { value: settings.exposure },
 
-    uThetaZW:   { value: 0.0 },
+    uThetaZW: { value: 0.0 },
     uSliceBase: { value: settings.slice },
-    uSliceAmp:  { value: settings.animateSlice ? settings.sliceAmplitude : 0.0 },
-    uSlicePhase:{ value: 0.0 },
+    uSliceAmp: { value: settings.animateSlice ? settings.sliceAmplitude : 0.0 },
+    uSlicePhase: { value: 0.0 },
     uAnimFlags: { value: 0 },
-    uCAnimScale:{ value: settings.cLoopScale },
+    uCAnimScale: { value: settings.cLoopScale },
 
     uReduced: { value: settings.reducedMotion ? 1 : 0 },
   };
 
-  function foldH3_JS(vec){
+  function foldH3_JS(vec) {
     const iterations = uniforms.uFoldIters.value | 0;
-    for (let i = 0; i < iterations; i++){
+    for (let i = 0; i < iterations; i++) {
       const d0 = vec.dot(PLANE_N0); if (d0 < 0) vec.addScaledVector(PLANE_N0, -2 * d0);
       const d1 = vec.dot(PLANE_N1); if (d1 < 0) vec.addScaledVector(PLANE_N1, -2 * d1);
       const d2 = vec.dot(PLANE_N2); if (d2 < 0) vec.addScaledVector(PLANE_N2, -2 * d2);
@@ -271,7 +271,7 @@ export async function createVisualizer(canvas, opts = {}){
     return vec;
   }
 
-  function juliaDE_JS(p){
+  function juliaDE_JS(p) {
     TMP_LOCAL.copy(p);
     TMP_FOLD.copy(TMP_LOCAL);
     foldH3_JS(TMP_FOLD);
@@ -295,8 +295,8 @@ export async function createVisualizer(canvas, opts = {}){
     const cosTheta = Math.cos(uniforms.uThetaZW.value);
     const sinTheta = Math.sin(uniforms.uThetaZW.value);
 
-    for (let i = 0; i < iters; i++){
-      if (rotateZW){
+    for (let i = 0; i < iters; i++) {
+      if (rotateZW) {
         const zZ = zz;
         const zW = zw;
         zz = cosTheta * zZ - sinTheta * zW;
@@ -315,12 +315,12 @@ export async function createVisualizer(canvas, opts = {}){
     return 0.5 * Math.log(r) * r / Math.max(mdr, 1e-6);
   }
 
-  function marchRayJS(ro, rd, outVec){
+  function marchRayJS(ro, rd, outVec) {
     let t = 0;
-    for (let i = 0; i < JS_MAX_STEPS; i++){
+    for (let i = 0; i < JS_MAX_STEPS; i++) {
       TMP_POS.copy(ro).addScaledVector(rd, t);
       const d = Math.abs(juliaDE_JS(TMP_POS));
-      if (d < JS_SURF_EPS){
+      if (d < JS_SURF_EPS) {
         if (outVec) outVec.copy(TMP_POS);
         return true;
       }
@@ -330,7 +330,7 @@ export async function createVisualizer(canvas, opts = {}){
     return false;
   }
 
-  function computeCameraCentroid(){
+  function computeCameraCentroid() {
     viewCam.updateMatrixWorld(true);
     viewCam.getWorldDirection(TMP_DIR);
     TMP_UP.set(0, 1, 0).applyQuaternion(viewCam.quaternion).normalize();
@@ -342,12 +342,12 @@ export async function createVisualizer(canvas, opts = {}){
 
     TMP_AVG.set(0, 0, 0);
     let count = 0;
-    for (const [ox, oy] of SAMPLE_OFFSETS){
+    for (const [ox, oy] of SAMPLE_OFFSETS) {
       TMP_RAY.copy(TMP_DIR)
         .addScaledVector(TMP_RIGHT, ox * tanX)
         .addScaledVector(TMP_UP, oy * tanY)
         .normalize();
-      if (marchRayJS(TMP_RO, TMP_RAY, TMP_HIT)){
+      if (marchRayJS(TMP_RO, TMP_RAY, TMP_HIT)) {
         TMP_AVG.add(TMP_HIT);
         count++;
       }
@@ -359,7 +359,7 @@ export async function createVisualizer(canvas, opts = {}){
     return TMP_AVG.multiplyScalar(1 / count).clone();
   }
 
-  function recenterFractal(){
+  function recenterFractal() {
     uniforms.uOffset.value.set(0, 0, 0);
     const centroid = computeCameraCentroid();
     if (!centroid) return null;
@@ -367,7 +367,7 @@ export async function createVisualizer(canvas, opts = {}){
     return centroid;
   }
 
-  function recenter(){
+  function recenter() {
     const centroid = recenterFractal();
     if (centroid) {
       requestRender();
@@ -375,7 +375,7 @@ export async function createVisualizer(canvas, opts = {}){
     return centroid;
   }
 
-  function getState(){
+  function getState() {
     return {
       ...settings,
       reducedMotion: uniforms.uReduced.value === 1
@@ -571,10 +571,10 @@ export async function createVisualizer(canvas, opts = {}){
   let composer = null;
   let bloomPass = null;
   let fxaaPass = null;
-  if (usePost){
+  if (usePost) {
     composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, screenCam));
-    if (settings.bloom > 0){
+    if (settings.bloom > 0) {
       bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), settings.bloom, 0.7, 0.8);
       composer.addPass(bloomPass);
     }
@@ -584,16 +584,16 @@ export async function createVisualizer(canvas, opts = {}){
     composer.addPass(fxaaPass);
   }
 
-  function updateBloomPipeline(){
+  function updateBloomPipeline() {
     if (!usePost) return;
-    if (settings.bloom > 0){
-      if (!bloomPass){
+    if (settings.bloom > 0) {
+      if (!bloomPass) {
         bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), settings.bloom, 0.7, 0.8);
         const fxaaIndex = composer.passes.indexOf(fxaaPass);
         composer.insertPass(bloomPass, Math.max(0, fxaaIndex));
       }
       bloomPass.strength = settings.bloom;
-    } else if (bloomPass){
+    } else if (bloomPass) {
       composer.removePass(bloomPass);
       bloomPass = null;
     }
@@ -602,7 +602,7 @@ export async function createVisualizer(canvas, opts = {}){
 
   // Sync helper functions
   const baseC = uniforms.uC.value.clone();
-  function applySequence(seq){
+  function applySequence(seq) {
     const mapped = seqToParams(seq, settings);
     if (!mapped) return false;
     uniforms.uC.value.copy(mapped.c);
@@ -617,7 +617,17 @@ export async function createVisualizer(canvas, opts = {}){
   }
   if (settings.sequence) applySequence(settings.sequence);
 
-  function updateCameraUniforms(){
+  // Override sequence-derived values if explicitly provided in opts
+  if (opts.roughness !== undefined) {
+    settings.roughness = opts.roughness;
+    uniforms.uRoughness.value = opts.roughness;
+  }
+  if (opts.fold !== undefined) {
+    settings.fold = opts.fold;
+    uniforms.uFoldStrength.value = opts.fold;
+  }
+
+  function updateCameraUniforms() {
     viewCam.updateMatrixWorld(true);
     const dir = new THREE.Vector3(); viewCam.getWorldDirection(dir);
     const up = new THREE.Vector3(0, 1, 0).applyQuaternion(viewCam.quaternion).normalize();
@@ -630,7 +640,7 @@ export async function createVisualizer(canvas, opts = {}){
     uniforms.uTanFovX.value = uniforms.uTanFovY.value * viewCam.aspect;
   }
 
-  function syncAnimUniforms(){
+  function syncAnimUniforms() {
     uniforms.uSlice.value = settings.slice;
     uniforms.uSliceBase.value = settings.slice;
     uniforms.uSliceAmp.value = settings.animateSlice ? settings.sliceAmplitude : 0.0;
@@ -668,26 +678,26 @@ export async function createVisualizer(canvas, opts = {}){
   let framePending = false;
   let last = performance.now();
 
-  function updateAnimation(timeSeconds){
+  function updateAnimation(timeSeconds) {
     const reduced = uniforms.uReduced.value === 1;
     const flags = reduced ? 0 : uniforms.uAnimFlags.value;
 
-    if (!reduced && (flags & 1) && uniforms.uSliceAmp.value > 0.0){
+    if (!reduced && (flags & 1) && uniforms.uSliceAmp.value > 0.0) {
       uniforms.uSlicePhase.value = settings.sliceSpeed * timeSeconds * TAU;
     } else {
       uniforms.uSlicePhase.value = 0.0;
     }
 
-    if (!reduced && (flags & 2)){
+    if (!reduced && (flags & 2)) {
       uniforms.uThetaZW.value = settings.rotationSpeed * timeSeconds * TAU;
     } else {
       uniforms.uThetaZW.value = 0.0;
     }
 
-    if (!reduced && (flags & 4)){
+    if (!reduced && (flags & 4)) {
       const speed = settings.cLoopSpeed * TAU;
       const limit = Math.min(settings.cLoopScale, 0.95);
-      if (limit <= 0.0){
+      if (limit <= 0.0) {
         uniforms.uC.value.copy(baseC);
       } else {
         const arg0 = C_LOOP_FREQS[0] * speed * timeSeconds + C_LOOP_PHASES[0];
@@ -699,7 +709,7 @@ export async function createVisualizer(canvas, opts = {}){
         let cz = baseC.z + C_LOOP_RADII[2] * Math.sin(arg2);
         let cw = baseC.w + C_LOOP_RADII[3] * Math.sin(arg3);
         const norm = Math.hypot(cx, cy, cz, cw);
-        if (norm > limit && norm > 1e-6){
+        if (norm > limit && norm > 1e-6) {
           const scale = limit / norm;
           cx *= scale; cy *= scale; cz *= scale; cw *= scale;
         }
@@ -710,13 +720,13 @@ export async function createVisualizer(canvas, opts = {}){
     }
   }
 
-  function hasActiveAnimation(){
+  function hasActiveAnimation() {
     return uniforms.uReduced.value === 0 && (
       settings.animateSlice || settings.animateRotation || settings.animateCLoop
     );
   }
 
-  function setRendererSize(){
+  function setRendererSize() {
     const scale = hasActiveAnimation() ? ANIM_SCALE : STATIC_SCALE;
     const width = Math.max(1, window.innerWidth * scale);
     const height = Math.max(1, window.innerHeight * scale);
@@ -731,7 +741,7 @@ export async function createVisualizer(canvas, opts = {}){
     if (composer) composer.setSize(width, height);
   }
 
-  function renderFrame(){
+  function renderFrame() {
     const now = performance.now();
     elapsed += (now - last) / 1000;
     last = now;
@@ -756,7 +766,7 @@ export async function createVisualizer(canvas, opts = {}){
   }
   updateCameraUniforms();
 
-  function requestRender(){
+  function requestRender() {
     if (!framePending) {
       framePending = true;
       requestAnimationFrame(renderFrame);
@@ -764,7 +774,7 @@ export async function createVisualizer(canvas, opts = {}){
   }
   requestRender();
 
-  function resize(){
+  function resize() {
     const w = window.innerWidth;
     const h = window.innerHeight;
     setRendererSize();
@@ -779,17 +789,17 @@ export async function createVisualizer(canvas, opts = {}){
     requestRender();
   }
 
-  function pause(){
+  function pause() {
     uniforms.uReduced.value = 1;
   }
 
-  function resume(){
+  function resume() {
     updateReducedUniform();
     last = performance.now();
     requestRender();
   }
 
-  function setSequence(seq){
+  function setSequence(seq) {
     if (!applySequence(seq)) return false;
     settings.sequence = seq;
     recenterFractal();
@@ -797,79 +807,79 @@ export async function createVisualizer(canvas, opts = {}){
     return true;
   }
 
-  function setParams(params = {}){
+  function setParams(params = {}) {
     const { recenter, ...rest } = params;
     Object.assign(settings, rest);
 
-    if (Object.prototype.hasOwnProperty.call(rest, 'sequence')){
+    if (Object.prototype.hasOwnProperty.call(rest, 'sequence')) {
       setSequence(rest.sequence);
     }
 
-    if (typeof rest.slice === 'number'){
+    if (typeof rest.slice === 'number') {
       uniforms.uSlice.value = rest.slice;
       uniforms.uSliceBase.value = rest.slice;
     }
-    if (typeof rest.iterations === 'number'){
+    if (typeof rest.iterations === 'number') {
       uniforms.uIters.value = rest.iterations | 0;
     }
-    if (typeof rest.fold === 'number'){
+    if (typeof rest.fold === 'number') {
       uniforms.uFoldStrength.value = rest.fold;
     }
-    if (typeof rest.roughness === 'number'){
+    if (typeof rest.roughness === 'number') {
       uniforms.uRoughness.value = rest.roughness;
     }
-    if (typeof rest.exposure === 'number'){
+    if (typeof rest.exposure === 'number') {
       uniforms.uExposure.value = rest.exposure;
     }
-    if (typeof rest.bloom === 'number'){
+    if (typeof rest.bloom === 'number') {
       settings.bloom = rest.bloom;
       updateBloomPipeline();
     }
-    if (typeof rest.bailout === 'number'){
+    if (typeof rest.bailout === 'number') {
       uniforms.uBailout.value = rest.bailout;
     }
-    if (typeof rest.sliceAmplitude === 'number'){
+    if (typeof rest.sliceAmplitude === 'number') {
       settings.sliceAmplitude = rest.sliceAmplitude;
     }
-    if (typeof rest.cLoopScale === 'number'){
+    if (typeof rest.cLoopScale === 'number') {
       settings.cLoopScale = rest.cLoopScale;
     }
-    if (typeof rest.sliceSpeed === 'number'){
+    if (typeof rest.sliceSpeed === 'number') {
       settings.sliceSpeed = rest.sliceSpeed;
     }
-    if (typeof rest.rotationSpeed === 'number'){
+    if (typeof rest.rotationSpeed === 'number') {
       settings.rotationSpeed = rest.rotationSpeed;
     }
-    if (typeof rest.cLoopSpeed === 'number'){
+    if (typeof rest.cLoopSpeed === 'number') {
       settings.cLoopSpeed = rest.cLoopSpeed;
     }
-    if (typeof rest.animateSlice === 'boolean'){
+    if (typeof rest.animateSlice === 'boolean') {
       settings.animateSlice = rest.animateSlice;
     }
-    if (typeof rest.animateRotation === 'boolean'){
+    if (typeof rest.animateRotation === 'boolean') {
       settings.animateRotation = rest.animateRotation;
     }
-    if (typeof rest.animateCLoop === 'boolean'){
+    if (typeof rest.animateCLoop === 'boolean') {
       settings.animateCLoop = rest.animateCLoop;
     }
     let cameraChanged = false;
-    if (typeof rest.cameraDistance === 'number'){
+    if (typeof rest.cameraDistance === 'number') {
       settings.cameraDistance = rest.cameraDistance;
       cameraChanged = true;
     }
-    if (typeof rest.cameraAzimuth === 'number'){
+    if (typeof rest.cameraAzimuth === 'number') {
       settings.cameraAzimuth = rest.cameraAzimuth;
       cameraChanged = true;
     }
-    if (typeof rest.cameraElevation === 'number'){
+    if (typeof rest.cameraElevation === 'number') {
       settings.cameraElevation = rest.cameraElevation;
       cameraChanged = true;
     }
-    if (cameraChanged){
+    if (cameraChanged) {
       updateCameraFromSettings();
       updateCameraUniforms();
     }
-    if (Object.prototype.hasOwnProperty.call(rest, 'reducedMotion')){
+    if (Object.prototype.hasOwnProperty.call(rest, 'reducedMotion')) {
       hasReducedOverride = true;
       cleanup.forEach(fn => { try { fn(); } catch (e) { /* noop */ } });
       cleanup.length = 0;
@@ -877,13 +887,13 @@ export async function createVisualizer(canvas, opts = {}){
     }
     const hasAnimations = settings.animateSlice || settings.animateRotation || settings.animateCLoop;
 
-    if (hasAnimations && uniforms.uReduced.value === 1){
+    if (hasAnimations && uniforms.uReduced.value === 1) {
       manualMotionOverride = true;
       hasReducedOverride = true;
       settings.reducedMotion = false;
       updateReducedUniform();
       last = performance.now();
-    } else if (!hasAnimations && manualMotionOverride && !Object.prototype.hasOwnProperty.call(rest, 'reducedMotion')){
+    } else if (!hasAnimations && manualMotionOverride && !Object.prototype.hasOwnProperty.call(rest, 'reducedMotion')) {
       manualMotionOverride = false;
       hasReducedOverride = false;
       settings.reducedMotion = mq.matches;
@@ -891,13 +901,13 @@ export async function createVisualizer(canvas, opts = {}){
     }
 
     syncAnimUniforms();
-    if (recenter){
+    if (recenter) {
       recenterFractal();
     }
     requestRender();
   }
 
-  function dispose(){
+  function dispose() {
     cleanup.forEach(fn => { try { fn(); } catch (e) { /* noop */ } });
     composer?.dispose();
     fxaaPass?.dispose?.();
